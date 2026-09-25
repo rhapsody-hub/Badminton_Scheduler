@@ -1492,3 +1492,17 @@ label {
     width: 100%;
   }
 }
+
+
+/* Attendance action group */
+.attendance-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.attendance-actions .btn {
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+}

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=5" />
+  <link rel="stylesheet" href="styles.css?refresh=6" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -94,6 +94,7 @@
             <input id="hide-completed" type="checkbox" />
             Hide completed
           </label>
+          <button id="export-excel" class="btn" type="button">Export Excel</button>
           <button id="save-session-matches" class="btn" type="button">Save Session</button>
           <button id="unconfirm-all" class="btn" type="button">Unconfirm all</button>
           <button id="confirm-all" class="btn primary" type="button">Confirm all</button>
@@ -135,7 +136,10 @@
               <h2>Attendance</h2>
               <p>Tick members as they arrive. Attendance is saved automatically.</p>
             </div>
-            <button id="all-present" class="btn" type="button">All present</button>
+            <div class="attendance-actions">
+              <button id="clear-attendance" class="btn" type="button">Clear attendance</button>
+              <button id="all-present" class="btn" type="button">All present</button>
+            </div>
           </div>
           <div id="attendance-list" class="attendance-list"></div>
         </div>
@@ -171,7 +175,7 @@
     </section>
   </main>
 
-  <script src="storage.js?refresh=5" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=5" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="storage.js?refresh=6" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=6" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

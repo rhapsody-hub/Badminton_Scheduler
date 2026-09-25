@@ -494,6 +494,164 @@
   }
 
 
+  function excelEscape(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function excelTierColor(tier) {
+    return {
+      'A+': '#4472C4',
+      'A': '#9DC3E6',
+      'B+': '#70AD47',
+      'B': '#A9D18E',
+      'C': '#FFE699',
+      'D': '#FCE4D6',
+      '?': '#E7E6E6'
+    }[tier] || '#FFFFFF';
+  }
+
+  function exportMatchesToExcel() {
+    if (!state.matches.length) {
+      setStatus('There are no matches to export.');
+      return;
+    }
+
+    const counts = new Map(state.members.map(member => [member.id, 0]));
+    state.matches.forEach(match => {
+      match.players.forEach(id => {
+        if (counts.has(id)) counts.set(id, counts.get(id) + 1);
+      });
+    });
+
+    const matchRows = [...state.matches]
+      .sort((a, b) => a.round - b.round || a.court - b.court)
+      .map(match => {
+        const p = match.players.map(memberById);
+        const team1 = p.slice(0, 2);
+        const team2 = p.slice(2, 4);
+
+        return `
+          <tr>
+            <td>${match.round}</td>
+            <td>${match.court}</td>
+            <td>${excelEscape(matchType(match.players))}</td>
+            <td style="background:${excelTierColor(team1[0]?.tier)}">${excelEscape(team1[0]?.name)}</td>
+            <td style="background:${excelTierColor(team1[1]?.tier)}">${excelEscape(team1[1]?.name)}</td>
+            <td style="background:${excelTierColor(team2[0]?.tier)}">${excelEscape(team2[0]?.name)}</td>
+            <td style="background:${excelTierColor(team2[1]?.tier)}">${excelEscape(team2[1]?.name)}</td>
+            <td>${excelEscape(matchSkillLabel(match))}</td>
+            <td>${match.confirmed ? 'Yes' : 'No'}</td>
+            <td>${match.completed ? 'Yes' : 'No'}</td>
+          </tr>
+        `;
+      }).join('');
+
+    const playerRows = [...state.members]
+      .sort((a, b) =>
+        (counts.get(b.id) || 0) - (counts.get(a.id) || 0) ||
+        a.name.localeCompare(b.name)
+      )
+      .map(member => `
+        <tr>
+          <td style="background:${excelTierColor(member.tier)}">${excelEscape(member.name)}</td>
+          <td>${excelEscape(member.gender)}</td>
+          <td>${excelEscape(member.tier)}</td>
+          <td>${counts.get(member.id) || 0}</td>
+          <td>${member.present ? 'Present' : 'Absent'}</td>
+        </tr>
+      `).join('');
+
+    const sessionName = state.sessionName || 'Badminton Session';
+    const generatedAt = new Date().toLocaleString();
+
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:x="urn:schemas-microsoft-com:office:excel"
+            xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="ProgId" content="Excel.Sheet">
+        <meta name="Generator" content="Badminton Session Manager">
+        <style>
+          body { font-family: Arial, sans-serif; font-size: 10pt; }
+          table { border-collapse: collapse; margin-bottom: 18px; }
+          th, td { border: 1px solid #999; padding: 5px 7px; white-space: nowrap; }
+          th { background: #D9E2F3; font-weight: bold; }
+          .title { font-size: 16pt; font-weight: bold; border: 0; }
+          .label { font-weight: bold; background: #F2F2F2; }
+        </style>
+      </head>
+      <body>
+
+        <table>
+          <tr><td class="title" colspan="4">${excelEscape(sessionName)}</td></tr>
+          <tr><td class="label">Exported</td><td>${excelEscape(generatedAt)}</td></tr>
+          <tr><td class="label">Courts</td><td>${state.courts}</td></tr>
+          <tr><td class="label">Duration</td><td>${state.duration} min</td></tr>
+          <tr><td class="label">Rotation</td><td>${state.rotationMin} min</td></tr>
+          <tr><td class="label">Match mix</td><td>${excelEscape(state.mix)}</td></tr>
+          <tr><td class="label">Total matches</td><td>${state.matches.length}</td></tr>
+        </table>
+
+        <table>
+          <tr>
+            <th>Player</th>
+            <th>Gender</th>
+            <th>Tier</th>
+            <th>Match Count</th>
+            <th>Attendance</th>
+          </tr>
+          ${playerRows}
+        </table>
+
+        <table>
+          <tr>
+            <th>Rotation</th>
+            <th>Court</th>
+            <th>Type</th>
+            <th>Team 1 - Player 1</th>
+            <th>Team 1 - Player 2</th>
+            <th>Team 2 - Player 1</th>
+            <th>Team 2 - Player 2</th>
+            <th>Profile</th>
+            <th>Confirmed</th>
+            <th>Completed</th>
+          </tr>
+          ${matchRows}
+        </table>
+
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(
+      ['\ufeff', html],
+      { type: 'application/vnd.ms-excel;charset=utf-8' }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    const safeName = String(sessionName || 'badminton-session')
+      .trim()
+      .replace(/[^\w\-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase() || 'badminton-session';
+
+    anchor.href = url;
+    anchor.download = `${safeName}.xls`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus(`Excel file exported: ${safeName}.xls`);
+  }
+
   function renderPlayerMatchCounts() {
     const container = $('#player-match-counts');
     if (!container) return;
@@ -1048,6 +1206,8 @@
   $('#save-session').addEventListener('click', saveSessionToHistory);
   $('#save-session-matches').addEventListener('click', saveSessionToHistory);
 
+  $('#export-excel').addEventListener('click', exportMatchesToExcel);
+
   $('#unconfirm-all').addEventListener('click', () => {
     state.matches.forEach(m => m.confirmed = false);
     saveState('All matches unconfirmed and saved.');
@@ -1068,6 +1228,12 @@
     state.matches.forEach(m => m.completed = false);
     saveState('Completed flags cleared and saved.');
     renderAll();
+  });
+
+  $('#clear-attendance').addEventListener('click', () => {
+    state.members.forEach(m => m.present = false);
+    saveState('Attendance cleared and saved.');
+    renderAttendance();
   });
 
   $('#all-present').addEventListener('click', () => {

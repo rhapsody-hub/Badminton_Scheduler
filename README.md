@@ -233,3 +233,30 @@ The **Session History** tab shows previous saves and lets you:
 Resetting the current session does not erase Session History.
 
 History is local to the current browser/device. A shared multi-device history would require a database/backend such as Supabase or Firebase.
+
+
+## Clear Attendance
+
+The Attendance & Live page now includes **Clear attendance**.
+
+It marks every player absent and saves the updated attendance state immediately.
+
+## Excel Export
+
+The Matches page now includes **Export Excel**.
+
+The browser downloads an Excel-compatible `.xls` file containing:
+
+- Session name and settings
+- Player list
+- Gender
+- Skill tier
+- Player match counts
+- Attendance
+- Full match schedule
+- Match type
+- Skill profile
+- Confirmed status
+- Completed status
+
+The export is generated entirely in the browser and does not require an external JavaScript library or backend.
