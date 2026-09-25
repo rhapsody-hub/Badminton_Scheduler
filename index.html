@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles-v3.css" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -80,8 +80,9 @@
       <div class="section-head match-section-head">
         <div>
           <h2>Match Schedule</h2>
-          <p>Excel-style view. Edit players directly in the table; skill colors update automatically.</p>
+          <p>Rotation grid: one row per rotation, with all courts side-by-side.</p>
         </div>
+
         <div class="match-toolbar">
           <label class="toolbar-check">
             <input id="hide-completed" type="checkbox" />
@@ -102,25 +103,10 @@
         <span class="skill-key tier-q">?</span>
       </div>
 
-      <div class="sheet-wrap">
-        <table class="match-sheet">
-          <thead>
-            <tr>
-              <th class="col-rotation">Rot.</th>
-              <th class="col-time">Time</th>
-              <th class="col-court">Court</th>
-              <th class="col-type">Type</th>
-              <th>Team 1 - P1</th>
-              <th>Team 1 - P2</th>
-              <th class="col-vs">VS</th>
-              <th>Team 2 - P1</th>
-              <th>Team 2 - P2</th>
-              <th class="col-skill">Profile</th>
-              <th class="col-flag">Confirm</th>
-              <th class="col-flag">Done</th>
-            </tr>
-          </thead>
-          <tbody id="match-list"></tbody>
+      <div class="rotation-sheet-wrap">
+        <table class="rotation-sheet">
+          <thead id="match-grid-head"></thead>
+          <tbody id="match-grid-body"></tbody>
         </table>
       </div>
     </section>
@@ -155,7 +141,7 @@
     </section>
   </main>
 
-  <script src="storage.js"></script>
-  <script src="app.js"></script>
+  <script src="storage-v3.js"></script>
+  <script src="app-v3.js"></script>
 </body>
 </html>

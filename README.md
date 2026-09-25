@@ -115,3 +115,16 @@ The Matches page now uses a dense spreadsheet-style table:
 - Confirm and Done are simple checkbox columns.
 - Optional **Hide completed** filter.
 - Manual player editing still works from each row.
+
+
+## V3 rotation spreadsheet
+
+The Matches page now uses a true rotation grid:
+
+- One row per rotation instead of one row/card per match.
+- Court 1, Court 2, Court 3, etc. appear side-by-side.
+- A standard 3-court / 10-rotation session uses only 10 table rows.
+- Each court cell contains both teams and remains editable.
+- Player selectors retain the skill-tier colors.
+- Confirm and Done are compact C / D checkboxes inside each court.
+- The stylesheet and JavaScript use versioned filenames (`styles-v3.css`, `app-v3.js`) to avoid old GitHub Pages/browser cache collisions.
