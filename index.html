@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Badminton Session Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="bsm-root" class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Badminton Session Manager</p>
+        <h1>Plan, edit, and run your badminton session</h1>
+        <p class="subtitle">
+          Manage members, courts, match generation, attendance, live availability, and completed matches.
+        </p>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Badminton manager sections">
+      <button class="tab active" type="button" data-tab="members" aria-selected="true">Members</button>
+      <button class="tab" type="button" data-tab="session" aria-selected="false">Session</button>
+      <button class="tab" type="button" data-tab="matches" aria-selected="false">Matches</button>
+      <button class="tab" type="button" data-tab="attendance" aria-selected="false">Attendance & Live</button>
+    </nav>
+
+    <div id="status" class="status" aria-live="polite"></div>
+
+    <section data-panel="members">
+      <div class="section-head">
+        <div>
+          <h2>Members</h2>
+          <p>Add or edit names, gender, and skill tier. Changes are saved automatically.</p>
+        </div>
+        <button id="add-member" class="btn primary" type="button">+ Add member</button>
+      </div>
+      <div id="member-list" class="stack"></div>
+    </section>
+
+    <section data-panel="session" hidden>
+      <div class="card">
+        <h2>Session setup</h2>
+        <div class="form-grid">
+          <label>
+            Courts
+            <input id="courts" class="input" type="number" min="1" max="12" value="3" />
+          </label>
+          <label>
+            Duration (minutes)
+            <input id="duration" class="input" type="number" min="30" max="720" step="10" value="180" />
+          </label>
+          <label>
+            Rotation length
+            <input id="rotation-min" class="input" type="number" min="10" max="60" value="18" />
+          </label>
+          <label>
+            Match mix
+            <select id="mix" class="input">
+              <option value="balanced">Balanced</option>
+              <option value="less-mixed" selected>Fewer mixed doubles</option>
+              <option value="more-mixed">More mixed doubles</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="generate" class="btn primary" type="button">Generate matches</button>
+          <button id="clear-completed" class="btn" type="button">Clear completed flags</button>
+          <button id="reset-saved" class="btn danger" type="button">Reset saved data</button>
+        </div>
+
+        <p class="save-note">Saved automatically in this browser using localStorage.</p>
+      </div>
+
+      <div id="session-summary" class="summary-grid"></div>
+    </section>
+
+    <section data-panel="matches" hidden>
+      <div class="section-head">
+        <div>
+          <h2>Editable matches</h2>
+          <p>Change any player manually. Confirmed matches feed the attendance page.</p>
+        </div>
+        <button id="confirm-all" class="btn primary" type="button">Confirm all</button>
+      </div>
+      <div id="match-list" class="stack"></div>
+    </section>
+
+    <section data-panel="attendance" hidden>
+      <div class="attendance-layout">
+        <div class="card">
+          <div class="section-head compact">
+            <div>
+              <h2>Attendance</h2>
+              <p>Tick members as they arrive. Attendance is saved automatically.</p>
+            </div>
+            <button id="all-present" class="btn" type="button">All present</button>
+          </div>
+          <div id="attendance-list" class="attendance-list"></div>
+        </div>
+
+        <div>
+          <div id="live-summary" class="summary-grid three"></div>
+
+          <section class="live-block">
+            <h3>Available now</h3>
+            <div id="available-matches" class="stack"></div>
+          </section>
+
+          <section class="live-block">
+            <h3>Waiting for players</h3>
+            <div id="waiting-matches" class="stack"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
