@@ -127,22 +127,73 @@
     return 'Open Doubles';
   }
 
+  function randomValue() {
+    // crypto gives a better reshuffle when available; Math.random is the fallback.
+    if (window.crypto?.getRandomValues) {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      return values[0] / 4294967296;
+    }
+    return Math.random();
+  }
+
+  function shuffleCopy(items) {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(randomValue() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
+  function randomTieMap(members) {
+    return new Map(members.map(member => [member.id, randomValue()]));
+  }
+
   function pairBalanced(group) {
     const g = [...group].sort((a,b) => score[b.tier] - score[a.tier]);
     const men = g.filter(x => x.gender === 'Man');
     const women = g.filter(x => x.gender === 'Woman');
 
+    // Mixed doubles: randomly choose between the two valid cross-pairings.
+    // Both preserve one man + one woman per team.
     if (men.length === 2 && women.length === 2) {
-      return [men[0], women[1], men[1], women[0]];
+      if (randomValue() < 0.5) {
+        return [men[0], women[1], men[1], women[0]];
+      }
+      return [men[0], women[0], men[1], women[1]];
     }
 
-    return [g[0], g[3], g[1], g[2]];
+    // Same-gender/open groups have three possible doubles pairings.
+    // Prefer the more balanced two, then randomly choose between them.
+    if (g.length === 4) {
+      const pairings = [
+        [g[0], g[3], g[1], g[2]],
+        [g[0], g[2], g[1], g[3]],
+        [g[0], g[1], g[2], g[3]]
+      ];
+
+      const evaluated = pairings.map(players => {
+        const team1 = score[players[0].tier] + score[players[1].tier];
+        const team2 = score[players[2].tier] + score[players[3].tier];
+        return {
+          players,
+          gap: Math.abs(team1 - team2)
+        };
+      }).sort((a,b) => a.gap - b.gap);
+
+      const bestGap = evaluated[0].gap;
+      const acceptable = evaluated.filter(item => item.gap <= bestGap + 1);
+      return acceptable[Math.floor(randomValue() * acceptable.length)].players;
+    }
+
+    return shuffleCopy(g);
   }
 
   function chooseCourtGroup(pool, prefer) {
     const byGender = {
-      Man: pool.filter(x => x.gender === 'Man'),
-      Woman: pool.filter(x => x.gender === 'Woman')
+      Man: shuffleCopy(pool.filter(x => x.gender === 'Man')),
+      Woman: shuffleCopy(pool.filter(x => x.gender === 'Woman'))
     };
 
     if (prefer === 'women' && byGender.Woman.length >= 4) {
@@ -150,7 +201,10 @@
     }
 
     if (prefer === 'mixed' && byGender.Woman.length >= 2 && byGender.Man.length >= 2) {
-      return [byGender.Man[0], byGender.Man[1], byGender.Woman[0], byGender.Woman[1]];
+      return [
+        ...byGender.Man.slice(0,2),
+        ...byGender.Woman.slice(0,2)
+      ];
     }
 
     if (prefer === 'men' && byGender.Man.length >= 4) {
@@ -161,10 +215,13 @@
     if (byGender.Woman.length >= 4) return byGender.Woman.slice(0,4);
 
     if (byGender.Woman.length >= 2 && byGender.Man.length >= 2) {
-      return [byGender.Man[0], byGender.Man[1], byGender.Woman[0], byGender.Woman[1]];
+      return [
+        ...byGender.Man.slice(0,2),
+        ...byGender.Woman.slice(0,2)
+      ];
     }
 
-    return pool.slice(0,4);
+    return shuffleCopy(pool).slice(0,4);
   }
 
   function generateMatches() {
@@ -183,9 +240,17 @@
 
     const plays = new Map(state.members.map(m => [m.id, 0]));
     const last = new Map(state.members.map(m => [m.id, -99]));
+    const partnerCount = new Map();
+    const opponentCount = new Map();
     const matches = [];
 
+    const pairKey = (a, b) => [a, b].sort((x,y) => x-y).join('-');
+
     for (let round = 1; round <= rounds; round++) {
+      const tieMap = randomTieMap(state.members);
+
+      // Participation count remains the strongest priority.
+      // Waiting time is second. Randomness only breaks otherwise-similar choices.
       let candidates = [...state.members]
         .sort((a,b) => {
           const pa = plays.get(a.id);
@@ -196,11 +261,17 @@
           const wb = round - last.get(b.id);
           if (wa !== wb) return wb - wa;
 
-          return score[b.tier] - score[a.tier];
+          // Keep broad tier composition, but don't make it deterministic.
+          const tierDiff = score[b.tier] - score[a.tier];
+          if (Math.abs(tierDiff) >= 2) return tierDiff;
+
+          return tieMap.get(a.id) - tieMap.get(b.id);
         })
         .slice(0, Math.min(slotsPerRound, state.members.length));
 
-      candidates.sort((a,b) => score[b.tier] - score[a.tier]);
+      // Shuffle selected players before court assignment so every Generate click
+      // produces a genuinely different lineup while preserving the same fair pool.
+      candidates = shuffleCopy(candidates);
 
       for (let court = 1; court <= state.courts; court++) {
         if (candidates.length < 4) break;
@@ -210,6 +281,8 @@
         if (state.mix === 'more-mixed') {
           pref = 'mixed';
         } else if (state.mix === 'less-mixed') {
+          // Same composition rule as before: fewer mixed, with women's doubles
+          // appearing regularly when enough women are available.
           pref = (court === 1 && round % 3 !== 1) ? 'women' : 'men';
         } else {
           pref = (court + round) % 3 === 0
@@ -217,17 +290,82 @@
             : ((court + round) % 3 === 1 ? 'women' : 'men');
         }
 
-        const group = chooseCourtGroup(candidates, pref);
+        // Try several randomized groups and prefer one that avoids repeating
+        // partners while still following the selected match-type preference.
+        let bestOption = null;
 
-        group.forEach(x => {
-          const idx = candidates.findIndex(y => y.id === x.id);
+        for (let attempt = 0; attempt < 14; attempt++) {
+          const trialPool = shuffleCopy(candidates);
+          const group = chooseCourtGroup(trialPool, pref);
+          if (group.length < 4) continue;
+
+          const paired = pairBalanced(group);
+          if (paired.length < 4) continue;
+
+          const ids = paired.map(x => x.id);
+          const partnerPenalty =
+            (partnerCount.get(pairKey(ids[0], ids[1])) || 0) +
+            (partnerCount.get(pairKey(ids[2], ids[3])) || 0);
+
+          const opponentPenalty =
+            (opponentCount.get(pairKey(ids[0], ids[2])) || 0) +
+            (opponentCount.get(pairKey(ids[0], ids[3])) || 0) +
+            (opponentCount.get(pairKey(ids[1], ids[2])) || 0) +
+            (opponentCount.get(pairKey(ids[1], ids[3])) || 0);
+
+          const team1 = score[paired[0].tier] + score[paired[1].tier];
+          const team2 = score[paired[2].tier] + score[paired[3].tier];
+          const skillGap = Math.abs(team1 - team2);
+
+          // Partner repeats matter most, then excessive opponent repeats,
+          // then skill gap. Tiny random noise means equal-quality options reshuffle.
+          const quality =
+            partnerPenalty * 20 +
+            opponentPenalty * 2 +
+            skillGap +
+            randomValue() * 0.35;
+
+          if (!bestOption || quality < bestOption.quality) {
+            bestOption = { group, paired, ids, quality };
+          }
+        }
+
+        if (!bestOption) {
+          const group = chooseCourtGroup(candidates, pref);
+          if (group.length < 4) break;
+          const paired = pairBalanced(group);
+          bestOption = {
+            group,
+            paired,
+            ids: paired.map(x => x.id),
+            quality: 0
+          };
+        }
+
+        // Remove the selected four players from this rotation's remaining pool.
+        bestOption.group.forEach(player => {
+          const idx = candidates.findIndex(x => x.id === player.id);
           if (idx >= 0) candidates.splice(idx, 1);
         });
 
-        const paired = pairBalanced(group);
-        if (paired.length < 4) continue;
+        const ids = bestOption.ids;
 
-        const ids = paired.map(x => x.id);
+        partnerCount.set(
+          pairKey(ids[0], ids[1]),
+          (partnerCount.get(pairKey(ids[0], ids[1])) || 0) + 1
+        );
+        partnerCount.set(
+          pairKey(ids[2], ids[3]),
+          (partnerCount.get(pairKey(ids[2], ids[3])) || 0) + 1
+        );
+
+        [
+          [ids[0], ids[2]], [ids[0], ids[3]],
+          [ids[1], ids[2]], [ids[1], ids[3]]
+        ].forEach(([a,b]) => {
+          const key = pairKey(a,b);
+          opponentCount.set(key, (opponentCount.get(key) || 0) + 1);
+        });
 
         ids.forEach(id => {
           plays.set(id, plays.get(id) + 1);
@@ -235,7 +373,7 @@
         });
 
         matches.push({
-          id: `${Date.now()}-${round}-${court}-${matches.length}`,
+          id: `${Date.now()}-${round}-${court}-${matches.length}-${Math.floor(randomValue()*1000000)}`,
           round,
           court,
           start: (round - 1) * state.rotationMin,
@@ -250,7 +388,14 @@
     state.matches = matches;
     saveState();
     renderAll();
-    setStatus(`Generated and saved ${matches.length} matches across ${rounds} rotations.`);
+
+    const counts = [...plays.values()];
+    const minMatches = Math.min(...counts);
+    const maxMatches = Math.max(...counts);
+
+    setStatus(
+      `Reshuffled ${matches.length} matches. Player participation range: ${minMatches}–${maxMatches} matches.`
+    );
   }
 
   function renderMembers() {

@@ -186,3 +186,19 @@ The Matches page now includes a compact player-count panel above the schedule.
 - Players are ordered by match count, then name.
 - The existing skill-tier color coding is retained.
 - Counts include all scheduled matches, whether confirmed or unconfirmed.
+
+
+## Generate / Reshuffle
+
+Every press of **Generate / Reshuffle matches** now creates a new lineup.
+
+The reshuffle still prioritizes:
+
+- Fair match counts across players.
+- Shorter waits between appearances.
+- The selected Men's / Women's / Mixed match-mix preference.
+- Reasonable skill composition.
+- Avoiding repeated partners where possible.
+- Reducing repeated opponent combinations where possible.
+
+Randomness is used to break ties and select between similarly balanced options, so repeated Generate presses no longer reproduce the same schedule.
