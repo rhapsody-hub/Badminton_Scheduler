@@ -1251,3 +1251,14 @@ label {
     max-height: none !important;
   }
 }
+
+
+/* Navigation tabs are links now, but retain the same button appearance. */
+.tabs .tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}

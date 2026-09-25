@@ -50,6 +50,10 @@
           .filter(match => match.players.every(id => validMemberIds.has(id)))
       : [];
 
+    // An empty member list means the saved state is invalid/corrupted.
+    // Return null so app.js can restore the default roster automatically.
+    if (members.length === 0) return null;
+
     return {
       members,
       matches,

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?refresh=2" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -19,15 +19,15 @@
     </header>
 
     <nav class="tabs" role="tablist" aria-label="Badminton manager sections">
-      <button class="tab active" type="button" data-tab="members" aria-selected="true">Members</button>
-      <button class="tab" type="button" data-tab="session" aria-selected="false">Session</button>
-      <button class="tab" type="button" data-tab="matches" aria-selected="false">Matches</button>
-      <button class="tab" type="button" data-tab="attendance" aria-selected="false">Attendance & Live</button>
+      <a class="tab active" href="#members" data-tab="members" aria-selected="true">Members</a>
+      <a class="tab" href="#session" data-tab="session" aria-selected="false">Session</a>
+      <a class="tab" href="#matches" data-tab="matches" aria-selected="false">Matches</a>
+      <a class="tab" href="#attendance" data-tab="attendance" aria-selected="false">Attendance & Live</a>
     </nav>
 
     <div id="status" class="status" aria-live="polite"></div>
 
-    <section data-panel="members">
+    <section id="members" data-panel="members">
       <div class="section-head">
         <div>
           <h2>Members</h2>
@@ -38,7 +38,7 @@
       <div id="member-list" class="stack"></div>
     </section>
 
-    <section data-panel="session" hidden>
+    <section id="session" data-panel="session" hidden>
       <div class="card">
         <h2>Session setup</h2>
         <div class="form-grid">
@@ -76,7 +76,7 @@
       <div id="session-summary" class="summary-grid"></div>
     </section>
 
-    <section data-panel="matches" hidden>
+    <section id="matches" data-panel="matches" hidden>
       <div class="section-head match-section-head">
         <div>
           <h2>Match Schedule</h2>
@@ -112,7 +112,7 @@
       </div>
     </section>
 
-    <section data-panel="attendance" hidden>
+    <section id="attendance" data-panel="attendance" hidden>
       <div class="attendance-layout">
         <div class="card">
           <div class="section-head compact">
@@ -142,7 +142,7 @@
     </section>
   </main>
 
-  <script src="storage.js"></script>
-  <script src="app.js"></script>
+  <script src="storage.js?refresh=2" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=2" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

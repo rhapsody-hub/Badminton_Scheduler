@@ -67,8 +67,19 @@
   function loadSavedState() {
     const result = window.BadmintonStorage?.load();
 
-    if (!result?.ok || !result.state) {
+    if (
+      !result?.ok ||
+      !result.state ||
+      !Array.isArray(result.state.members) ||
+      result.state.members.length === 0
+    ) {
       state = defaultState();
+
+      // Remove a corrupt/empty saved state so it does not keep returning.
+      if (result?.reason !== 'empty') {
+        window.BadmintonStorage?.clear();
+      }
+
       return false;
     }
 
@@ -76,6 +87,7 @@
       ...defaultState(),
       ...result.state
     };
+
     return true;
   }
 
@@ -604,17 +616,35 @@
     renderAttendance();
   }
 
-  $$('.tab').forEach(btn => btn.addEventListener('click', () => {
-    $$('.tab').forEach(b => {
-      const selected = b === btn;
-      b.classList.toggle('active', selected);
-      b.setAttribute('aria-selected', String(selected));
+  function showPanel(panelName, updateHash = false) {
+    const validPanels = ['members', 'session', 'matches', 'attendance'];
+    const target = validPanels.includes(panelName) ? panelName : 'members';
+
+    $$('.tab').forEach(tab => {
+      const selected = tab.dataset.tab === target;
+      tab.classList.toggle('active', selected);
+      tab.setAttribute('aria-selected', String(selected));
     });
 
     $$('[data-panel]').forEach(panel => {
-      panel.hidden = panel.dataset.panel !== btn.dataset.tab;
+      panel.hidden = panel.dataset.panel !== target;
     });
-  }));
+
+    if (updateHash && window.location.hash !== `#${target}`) {
+      history.replaceState(null, '', `#${target}`);
+    }
+  }
+
+  $$('.tab').forEach(tab => {
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      showPanel(tab.dataset.tab, true);
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    showPanel(window.location.hash.replace('#', '') || 'members');
+  });
 
   $('#add-member').addEventListener('click', () => {
     const id = Math.max(0, ...state.members.map(m => m.id)) + 1;
@@ -690,10 +720,12 @@
   const restored = loadSavedState();
   syncSessionInputs();
   renderAll();
+  showPanel(window.location.hash.replace('#', '') || 'members');
 
   if (restored) {
     setStatus('Saved session restored from this browser.');
   } else {
     generateMatches();
+    setStatus('Default member list restored and saved.');
   }
 })();

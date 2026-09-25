@@ -159,3 +159,19 @@ Use these same filenames for future updates:
 - `app.js`
 
 Just overwrite the existing files in GitHub.
+
+
+## Recovery fix
+
+This build automatically repairs an invalid saved state where the browser has stored an empty member list.
+
+It also uses hash-based tab navigation (`#members`, `#session`, `#matches`, `#attendance`) for more reliable navigation.
+
+The actual filenames remain unchanged:
+
+- `index.html`
+- `styles.css`
+- `storage.js`
+- `app.js`
+
+The query strings in `index.html` are only cache refresh parameters; they do not change the filenames you upload to GitHub.
