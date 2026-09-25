@@ -835,3 +835,419 @@ label {
     max-height: 65vh;
   }
 }
+
+
+/* =========================================================
+   V3 ROTATION SPREADSHEET
+   1 row = 1 rotation, courts side-by-side.
+   ========================================================= */
+
+.match-section-head {
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.match-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.toolbar-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.compact-legend {
+  margin: 0 0 6px;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.compact-legend .skill-key {
+  min-width: 30px;
+  padding: 2px 6px;
+  font-size: 0.64rem;
+}
+
+.rotation-sheet-wrap {
+  width: 100%;
+  max-height: calc(100vh - 245px);
+  overflow: auto;
+  border: 1px solid #aeb8c5;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(31, 41, 55, 0.05);
+}
+
+.rotation-sheet {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 0.68rem;
+}
+
+.rotation-sheet th,
+.rotation-sheet td {
+  border-right: 1px solid #cfd6df;
+  border-bottom: 1px solid #cfd6df;
+}
+
+.rotation-sheet th:last-child,
+.rotation-sheet td:last-child {
+  border-right: 0;
+}
+
+.rotation-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 31px;
+  background: #dfe5ec;
+  color: #203247;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-align: center;
+  white-space: nowrap;
+  border-bottom: 1px solid #98a6b6;
+}
+
+.rotation-sheet .rotation-col {
+  width: 50px;
+}
+
+.rotation-sheet .time-col {
+  width: 78px;
+}
+
+.rotation-sheet .rotation-meta-cell {
+  padding: 0 5px;
+  text-align: center;
+  background: #f3f6f9;
+  color: #344256;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.rotation-sheet .rotation-number-cell {
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.rotation-sheet tbody tr:nth-child(even) .rotation-meta-cell {
+  background: #edf2f6;
+}
+
+.rotation-sheet tbody tr.completed-rotation {
+  opacity: 0.5;
+}
+
+.court-grid-cell {
+  padding: 5px 6px;
+  vertical-align: top;
+  background: #fff;
+  min-width: 0;
+}
+
+.rotation-sheet tbody tr:nth-child(even) .court-grid-cell {
+  background: #fbfcfd;
+}
+
+.court-grid-cell.unconfirmed {
+  background: #fff9e8 !important;
+}
+
+.court-grid-cell.done {
+  background: #f2f3f5 !important;
+  opacity: 0.68;
+}
+
+.court-grid-cell.duplicate {
+  box-shadow: inset 0 0 0 2px #d97706;
+}
+
+.court-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.court-name-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.court-no {
+  display: inline-grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 5px;
+  background: #2b415d;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 950;
+  flex: 0 0 auto;
+}
+
+.court-type {
+  color: #536477;
+  font-size: 0.63rem;
+  font-weight: 850;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.court-flags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.court-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #667487;
+  font-size: 0.58rem;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.court-flag input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.court-teams-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+}
+
+.court-team {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  min-width: 0;
+}
+
+.court-vs {
+  display: grid;
+  place-items: center;
+  color: #68778a;
+  font-size: 0.58rem;
+  font-weight: 950;
+}
+
+.rotation-sheet select.grid-player {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid rgba(31, 41, 55, 0.11);
+  border-radius: 5px;
+  padding: 0 17px 0 4px;
+  font-size: 0.65rem;
+  font-weight: 850;
+  outline: none;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.rotation-sheet select.grid-player:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(49, 95, 158, 0.13);
+}
+
+.rotation-sheet select.grid-player.tier-ap,
+.rotation-sheet select.grid-player.tier-bp {
+  color: #fff;
+}
+
+.court-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  color: #718095;
+  font-size: 0.56rem;
+  font-weight: 750;
+  min-height: 11px;
+}
+
+.court-warning {
+  color: #b45309;
+  font-weight: 900;
+}
+
+.empty-court {
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  color: #9aa5b3;
+  font-size: 0.65rem;
+  font-style: italic;
+}
+
+.rotation-sheet-empty {
+  padding: 24px !important;
+  text-align: center;
+  color: var(--muted);
+}
+
+@media (max-width: 860px) {
+  .rotation-sheet-wrap {
+    max-height: calc(100vh - 275px);
+  }
+
+  .rotation-sheet {
+    min-width: 980px;
+  }
+}
+
+@media (max-width: 520px) {
+  .rotation-sheet-wrap {
+    max-height: calc(100vh - 300px);
+  }
+
+  .match-section-head {
+    align-items: stretch;
+  }
+}
+
+
+/* =========================================================
+   V4 readability adjustments
+   ========================================================= */
+
+/* Time column removed, giving more room to each court. */
+.rotation-sheet {
+  min-width: 920px;
+}
+
+.rotation-sheet .rotation-col {
+  width: 42px;
+}
+
+/* Smaller name text + tighter controls, but color remains tier-based. */
+.rotation-sheet select.grid-player {
+  height: 27px;
+  padding: 0 15px 0 4px;
+  font-size: 0.56rem;
+  font-weight: 850;
+  letter-spacing: -0.01em;
+}
+
+/* Slightly more horizontal room inside each team. */
+.court-teams-grid {
+  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
+  gap: 3px;
+}
+
+.court-team {
+  gap: 2px;
+}
+
+.court-vs {
+  font-size: 0.53rem;
+}
+
+.court-grid-cell {
+  padding: 4px 5px;
+}
+
+.court-cell-head {
+  margin-bottom: 3px;
+}
+
+.court-foot {
+  margin-top: 2px;
+}
+
+/* Attendance keeps the skill color, but tier text is hidden. */
+.attendance-name {
+  min-width: 88px;
+  justify-content: center;
+  padding: 0.28rem 0.62rem;
+  font-size: 0.76rem;
+}
+
+#attendance-list .attendance-row {
+  padding: 7px 0;
+}
+
+/* Live page player chips are names only, so give them a little more room. */
+#available-matches .pill,
+#waiting-matches .pill {
+  padding: 0.24rem 0.6rem;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 860px) {
+  .rotation-sheet {
+    min-width: 860px;
+  }
+}
+
+@media (max-width: 520px) {
+  .rotation-sheet {
+    min-width: 820px;
+  }
+
+  .rotation-sheet select.grid-player {
+    font-size: 0.54rem;
+  }
+}
+
+
+/* V5: use page scrolling instead of an internal vertical match scrollbar */
+.rotation-sheet-wrap {
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: auto;
+}
+
+.match-toolbar .btn {
+  min-height: 34px;
+  padding: 0.45rem 0.72rem;
+  font-size: 0.76rem;
+}
+
+/* Let the whole schedule flow with the page */
+.rotation-sheet thead th {
+  position: static !important;
+}
+
+@media (max-width: 860px) {
+  .rotation-sheet-wrap {
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .rotation-sheet-wrap {
+    max-height: none !important;
+  }
+}

@@ -147,3 +147,15 @@ The Matches page now uses a true rotation grid:
 - The full schedule now expands naturally down the page.
 - The browser/page scrollbar is now used for vertical scrolling.
 - Horizontal scrolling is only used when the screen is too narrow for all courts.
+
+
+## Stable filenames
+
+Use these same filenames for future updates:
+
+- `index.html`
+- `styles.css`
+- `storage.js`
+- `app.js`
+
+Just overwrite the existing files in GitHub.
