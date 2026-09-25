@@ -175,3 +175,14 @@ The actual filenames remain unchanged:
 - `app.js`
 
 The query strings in `index.html` are only cache refresh parameters; they do not change the filenames you upload to GitHub.
+
+
+## Player Match Counts
+
+The Matches page now includes a compact player-count panel above the schedule.
+
+- Each player shows their total scheduled match appearances for the current session.
+- Counts update immediately after match generation or manual player changes.
+- Players are ordered by match count, then name.
+- The existing skill-tier color coding is retained.
+- Counts include all scheduled matches, whether confirmed or unconfirmed.
