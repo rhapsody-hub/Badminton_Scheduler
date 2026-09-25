@@ -138,3 +138,12 @@ The Matches page now uses a true rotation grid:
 - Attendance no longer displays tier labels.
 - Attendance and Live player names still use the same skill-tier colors.
 - Versioned asset filenames (`styles-v4.css`, `storage-v4.js`, `app-v4.js`) avoid stale GitHub Pages/browser caches.
+
+
+## V5 changes
+
+- Added **Unconfirm all** next to **Confirm all**.
+- Removed the internal vertical scrollbar from the Match Schedule.
+- The full schedule now expands naturally down the page.
+- The browser/page scrollbar is now used for vertical scrolling.
+- Horizontal scrolling is only used when the screen is too narrow for all courts.
