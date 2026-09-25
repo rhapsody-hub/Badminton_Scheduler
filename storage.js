@@ -1,6 +1,8 @@
 (() => {
   const STORAGE_KEY = 'badmintonSessionManagerState';
+  const HISTORY_KEY = 'badmintonSessionManagerHistory';
   const STORAGE_VERSION = 1;
+  const HISTORY_VERSION = 1;
 
   function isAvailable() {
     try {
@@ -57,6 +59,7 @@
     return {
       members,
       matches,
+      sessionName: String(raw.sessionName || '').slice(0, 80),
       courts: Math.max(1, Math.min(12, Number(raw.courts) || 3)),
       duration: Math.max(30, Math.min(720, Number(raw.duration) || 180)),
       rotationMin: Math.max(10, Math.min(60, Number(raw.rotationMin) || 18)),
@@ -118,12 +121,105 @@
     }
   }
 
+  function loadHistory() {
+    if (!isAvailable()) {
+      return { ok: false, records: [] };
+    }
+
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (!raw) return { ok: true, records: [] };
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.records)) {
+        return { ok: true, records: [] };
+      }
+
+      const records = parsed.records
+        .filter(record => record && record.id && record.savedAt && record.state)
+        .map(record => {
+          const normalized = normalizeState(record.state);
+          if (!normalized) return null;
+
+          return {
+            id: String(record.id),
+            name: String(record.name || 'Saved Session').slice(0, 80),
+            savedAt: String(record.savedAt),
+            state: normalized
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+      return { ok: true, records };
+    } catch (error) {
+      console.warn('Could not load session history:', error);
+      return { ok: false, records: [] };
+    }
+  }
+
+  function writeHistory(records) {
+    if (!isAvailable()) return false;
+
+    try {
+      const payload = {
+        version: HISTORY_VERSION,
+        records
+      };
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(payload));
+      return true;
+    } catch (error) {
+      console.warn('Could not save session history:', error);
+      return false;
+    }
+  }
+
+  function saveHistorySession(name, state) {
+    const result = loadHistory();
+    const records = result.records || [];
+    const savedAt = new Date().toISOString();
+
+    const record = {
+      id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+      name: String(name || 'Saved Session').slice(0, 80),
+      savedAt,
+      state
+    };
+
+    const next = [record, ...records].slice(0, 100);
+    return writeHistory(next) ? record : null;
+  }
+
+  function deleteHistorySession(id) {
+    const result = loadHistory();
+    const next = (result.records || []).filter(record => record.id !== String(id));
+    return writeHistory(next);
+  }
+
+  function clearHistory() {
+    if (!isAvailable()) return false;
+
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+      return true;
+    } catch (error) {
+      console.warn('Could not clear session history:', error);
+      return false;
+    }
+  }
+
   window.BadmintonStorage = {
     key: STORAGE_KEY,
+    historyKey: HISTORY_KEY,
     version: STORAGE_VERSION,
+    historyVersion: HISTORY_VERSION,
     isAvailable,
     load,
     save,
-    clear
+    clear,
+    loadHistory,
+    saveHistorySession,
+    deleteHistorySession,
+    clearHistory
   };
 })();

@@ -20,6 +20,7 @@
   const defaultState = () => ({
     members: defaultMembers.map(m => ({ ...m })),
     matches: [],
+    sessionName: '',
     courts: 3,
     duration: 180,
     rotationMin: 18,
@@ -49,6 +50,7 @@
         ...m,
         players: [...m.players]
       })),
+      sessionName: state.sessionName || '',
       courts: state.courts,
       duration: state.duration,
       rotationMin: state.rotationMin,
@@ -92,6 +94,7 @@
   }
 
   function syncSessionInputs() {
+    $('#session-name').value = state.sessionName || '';
     $('#courts').value = state.courts;
     $('#duration').value = state.duration;
     $('#rotation-min').value = state.rotationMin;
@@ -794,16 +797,209 @@
     }));
   }
 
+  function defaultHistoryName() {
+    const now = new Date();
+    const datePart = now.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    const timePart = now.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return `Session ${datePart} ${timePart}`;
+  }
+
+  function saveSessionToHistory() {
+    state.sessionName = $('#session-name').value.trim().slice(0, 80);
+
+    const name = state.sessionName || defaultHistoryName();
+    const record = window.BadmintonStorage?.saveHistorySession(name, snapshotState());
+
+    if (!record) {
+      setStatus('Could not save session history in this browser.');
+      return;
+    }
+
+    if (!state.sessionName) {
+      state.sessionName = name;
+      $('#session-name').value = name;
+      saveState();
+    }
+
+    renderHistory();
+    setStatus(`Session saved to history: ${name}`);
+  }
+
+  function historyRecordStats(record) {
+    const matches = record.state.matches || [];
+    const members = record.state.members || [];
+
+    return {
+      players: members.length,
+      matches: matches.length,
+      completed: matches.filter(match => match.completed).length,
+      confirmed: matches.filter(match => match.confirmed).length,
+      present: members.filter(member => member.present).length
+    };
+  }
+
+  function formatHistoryDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown date';
+
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function renderHistory() {
+    const list = $('#history-list');
+    const summary = $('#history-summary');
+    if (!list || !summary) return;
+
+    const result = window.BadmintonStorage?.loadHistory();
+    const records = result?.records || [];
+
+    const totalMatches = records.reduce(
+      (sum, record) => sum + (record.state.matches?.length || 0),
+      0
+    );
+    const totalCompleted = records.reduce(
+      (sum, record) =>
+        sum + (record.state.matches || []).filter(match => match.completed).length,
+      0
+    );
+
+    summary.innerHTML = `
+      <div class="history-kpi">
+        <span class="history-kpi-value">${records.length}</span>
+        <span class="history-kpi-label">Saved sessions</span>
+      </div>
+      <div class="history-kpi">
+        <span class="history-kpi-value">${totalMatches}</span>
+        <span class="history-kpi-label">Saved matches</span>
+      </div>
+      <div class="history-kpi">
+        <span class="history-kpi-value">${totalCompleted}</span>
+        <span class="history-kpi-label">Completed matches</span>
+      </div>
+    `;
+
+    if (!records.length) {
+      list.innerHTML = `
+        <div class="history-empty">
+          No saved sessions yet. Use <strong>Save Session</strong> from Session or Matches.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = records.map(record => {
+      const stats = historyRecordStats(record);
+
+      const playerCounts = new Map(record.state.members.map(member => [member.id, 0]));
+      record.state.matches.forEach(match => {
+        match.players.forEach(id => {
+          if (playerCounts.has(id)) {
+            playerCounts.set(id, playerCounts.get(id) + 1);
+          }
+        });
+      });
+
+      const countText = record.state.members
+        .map(member => `${esc(member.name)} ${playerCounts.get(member.id) || 0}`)
+        .join(' · ');
+
+      return `
+        <article class="history-card" data-history-id="${esc(record.id)}">
+          <div class="history-card-main">
+            <div class="history-title-row">
+              <div>
+                <h3>${esc(record.name)}</h3>
+                <div class="history-date">${esc(formatHistoryDate(record.savedAt))}</div>
+              </div>
+
+              <div class="history-actions">
+                <button class="btn history-restore" type="button">Restore</button>
+                <button class="btn danger history-delete" type="button">Delete</button>
+              </div>
+            </div>
+
+            <div class="history-meta-grid">
+              <span><strong>${stats.players}</strong> players</span>
+              <span><strong>${stats.matches}</strong> matches</span>
+              <span><strong>${stats.completed}</strong> completed</span>
+              <span><strong>${stats.present}</strong> attended</span>
+              <span><strong>${record.state.courts}</strong> courts</span>
+              <span><strong>${record.state.duration}</strong> min</span>
+            </div>
+
+            <details class="history-details">
+              <summary>View session details</summary>
+              <div class="history-detail-content">
+                <div><strong>Match mix:</strong> ${esc(record.state.mix)}</div>
+                <div><strong>Rotation:</strong> ${record.state.rotationMin} min</div>
+                <div><strong>Confirmed:</strong> ${stats.confirmed}/${stats.matches}</div>
+                <div class="history-player-counts"><strong>Player matches:</strong> ${esc(countText)}</div>
+              </div>
+            </details>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    $$('.history-restore').forEach(button => {
+      button.addEventListener('click', event => {
+        const card = event.target.closest('[data-history-id]');
+        const record = records.find(item => item.id === card.dataset.historyId);
+        if (!record) return;
+
+        state = {
+          ...defaultState(),
+          ...JSON.parse(JSON.stringify(record.state))
+        };
+
+        syncSessionInputs();
+        saveState();
+        renderAll();
+        showPanel('matches', true);
+        setStatus(`Restored saved session: ${record.name}`);
+      });
+    });
+
+    $$('.history-delete').forEach(button => {
+      button.addEventListener('click', event => {
+        const card = event.target.closest('[data-history-id]');
+        const record = records.find(item => item.id === card.dataset.historyId);
+        if (!record) return;
+
+        const confirmed = window.confirm(`Delete saved session "${record.name}"?`);
+        if (!confirmed) return;
+
+        window.BadmintonStorage?.deleteHistorySession(record.id);
+        renderHistory();
+        setStatus(`Deleted saved session: ${record.name}`);
+      });
+    });
+  }
+
   function renderAll() {
     renderMembers();
     renderSession();
     renderPlayerMatchCounts();
     renderMatches();
     renderAttendance();
+    renderHistory();
   }
 
   function showPanel(panelName, updateHash = false) {
-    const validPanels = ['members', 'session', 'matches', 'attendance'];
+    const validPanels = ['members', 'session', 'matches', 'attendance', 'history'];
     const target = validPanels.includes(panelName) ? panelName : 'members';
 
     $$('.tab').forEach(tab => {
@@ -849,6 +1045,9 @@
 
   $('#generate').addEventListener('click', generateMatches);
 
+  $('#save-session').addEventListener('click', saveSessionToHistory);
+  $('#save-session-matches').addEventListener('click', saveSessionToHistory);
+
   $('#unconfirm-all').addEventListener('click', () => {
     state.matches.forEach(m => m.confirmed = false);
     saveState('All matches unconfirmed and saved.');
@@ -877,9 +1076,28 @@
     renderAttendance();
   });
 
+  $('#clear-history').addEventListener('click', () => {
+    const result = window.BadmintonStorage?.loadHistory();
+    const count = result?.records?.length || 0;
+
+    if (!count) {
+      setStatus('Session history is already empty.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${count} saved session${count === 1 ? '' : 's'} from history?`
+    );
+    if (!confirmed) return;
+
+    window.BadmintonStorage?.clearHistory();
+    renderHistory();
+    setStatus('Session history cleared.');
+  });
+
   $('#reset-saved').addEventListener('click', () => {
     const confirmed = window.confirm(
-      'Reset all saved members, matches, attendance, and session settings in this browser?'
+      'Reset the current working session? Saved Session History will be kept.'
     );
 
     if (!confirmed) return;
@@ -889,6 +1107,11 @@
     syncSessionInputs();
     renderAll();
     setStatus('Saved data reset to defaults.');
+  });
+
+  $('#session-name').addEventListener('change', () => {
+    state.sessionName = $('#session-name').value.trim().slice(0, 80);
+    saveState('Session name saved.');
   });
 
   ['courts','duration','rotation-min','mix'].forEach(id => {

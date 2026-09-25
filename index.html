@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=4" />
+  <link rel="stylesheet" href="styles.css?refresh=5" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -23,6 +23,7 @@
       <a class="tab" href="#session" data-tab="session" aria-selected="false">Session</a>
       <a class="tab" href="#matches" data-tab="matches" aria-selected="false">Matches</a>
       <a class="tab" href="#attendance" data-tab="attendance" aria-selected="false">Attendance & Live</a>
+      <a class="tab" href="#history" data-tab="history" aria-selected="false">Session History</a>
     </nav>
 
     <div id="status" class="status" aria-live="polite"></div>
@@ -42,6 +43,10 @@
       <div class="card">
         <h2>Session setup</h2>
         <div class="form-grid">
+          <label>
+            Session name
+            <input id="session-name" class="input" type="text" maxlength="80" placeholder="e.g. Friday Night Session" />
+          </label>
           <label>
             Courts
             <input id="courts" class="input" type="number" min="1" max="12" value="3" />
@@ -66,8 +71,9 @@
 
         <div class="actions">
           <button id="generate" class="btn primary" type="button">Generate / Reshuffle matches</button>
+          <button id="save-session" class="btn primary" type="button">Save Session</button>
           <button id="clear-completed" class="btn" type="button">Clear completed flags</button>
-          <button id="reset-saved" class="btn danger" type="button">Reset saved data</button>
+          <button id="reset-saved" class="btn danger" type="button">Reset current session</button>
         </div>
 
         <p class="save-note">Saved automatically in this browser using localStorage.</p>
@@ -88,6 +94,7 @@
             <input id="hide-completed" type="checkbox" />
             Hide completed
           </label>
+          <button id="save-session-matches" class="btn" type="button">Save Session</button>
           <button id="unconfirm-all" class="btn" type="button">Unconfirm all</button>
           <button id="confirm-all" class="btn primary" type="button">Confirm all</button>
         </div>
@@ -148,9 +155,23 @@
         </div>
       </div>
     </section>
+
+
+    <section id="history" data-panel="history" hidden>
+      <div class="section-head">
+        <div>
+          <h2>Session History</h2>
+          <p>Saved snapshots of previous sessions stored in this browser.</p>
+        </div>
+        <button id="clear-history" class="btn danger" type="button">Clear history</button>
+      </div>
+
+      <div id="history-summary" class="history-summary"></div>
+      <div id="history-list" class="history-list"></div>
+    </section>
   </main>
 
-  <script src="storage.js?refresh=4" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=4" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="storage.js?refresh=5" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=5" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

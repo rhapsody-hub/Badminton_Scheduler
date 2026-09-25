@@ -202,3 +202,34 @@ The reshuffle still prioritizes:
 - Reducing repeated opponent combinations where possible.
 
 Randomness is used to break ties and select between similarly balanced options, so repeated Generate presses no longer reproduce the same schedule.
+
+
+## Session History
+
+The site can now save complete session snapshots to browser storage.
+
+A saved session keeps:
+
+- Session name
+- Member list and skill levels
+- Attendance
+- Court count
+- Session duration
+- Rotation duration
+- Match-mix preference
+- Full generated / edited match list
+- Confirmed status
+- Completed status
+
+Use **Save Session** from either Session or Matches.
+
+The **Session History** tab shows previous saves and lets you:
+
+- View session summary and player match counts
+- Restore an old session as the current working session
+- Delete one saved session
+- Clear the full history
+
+Resetting the current session does not erase Session History.
+
+History is local to the current browser/device. A shared multi-device history would require a database/backend such as Supabase or Firebase.
