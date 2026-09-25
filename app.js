@@ -346,6 +346,46 @@
   }
 
 
+  function renderPlayerMatchCounts() {
+    const container = $('#player-match-counts');
+    if (!container) return;
+
+    const counts = new Map(state.members.map(member => [member.id, 0]));
+
+    state.matches.forEach(match => {
+      match.players.forEach(playerId => {
+        if (counts.has(playerId)) {
+          counts.set(playerId, counts.get(playerId) + 1);
+        }
+      });
+    });
+
+    const rows = state.members
+      .map(member => ({
+        ...member,
+        matchCount: counts.get(member.id) || 0
+      }))
+      .sort((a, b) =>
+        b.matchCount - a.matchCount ||
+        a.name.localeCompare(b.name)
+      );
+
+    if (!rows.length) {
+      container.innerHTML = '<span class="match-count-empty">No players.</span>';
+      return;
+    }
+
+    container.innerHTML = rows.map(member => `
+      <div
+        class="match-count-chip ${tierClass[member.tier] || 'tier-q'}"
+        title="${esc(member.name)}: ${member.matchCount} scheduled match${member.matchCount === 1 ? '' : 'es'}"
+      >
+        <span class="match-count-name">${esc(member.name)}</span>
+        <span class="match-count-number">${member.matchCount}</span>
+      </div>
+    `).join('');
+  }
+
   function renderMatches() {
     const head = $('#match-grid-head');
     const body = $('#match-grid-body');
@@ -612,6 +652,7 @@
   function renderAll() {
     renderMembers();
     renderSession();
+    renderPlayerMatchCounts();
     renderMatches();
     renderAttendance();
   }

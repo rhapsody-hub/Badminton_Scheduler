@@ -1262,3 +1262,93 @@ label {
   cursor: pointer;
   user-select: none;
 }
+
+
+/* Player Match Counts */
+.match-count-panel {
+  margin: 0 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  padding: 8px 9px;
+}
+
+.match-count-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.match-count-head strong {
+  font-size: 0.78rem;
+}
+
+.match-count-head span {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.match-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  gap: 4px;
+}
+
+.match-count-chip {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  height: 28px;
+  padding: 0 5px 0 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(31, 41, 55, 0.10);
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.match-count-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-count-number {
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.72);
+  color: #1f2937;
+  font-size: 0.66rem;
+  font-weight: 950;
+}
+
+.match-count-chip.tier-ap .match-count-number,
+.match-count-chip.tier-bp .match-count-number {
+  background: rgba(255,255,255,0.88);
+}
+
+.match-count-empty {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+@media (max-width: 700px) {
+  .match-count-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .match-count-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  }
+}
