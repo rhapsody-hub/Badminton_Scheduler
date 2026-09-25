@@ -128,3 +128,13 @@ The Matches page now uses a true rotation grid:
 - Player selectors retain the skill-tier colors.
 - Confirm and Done are compact C / D checkboxes inside each court.
 - The stylesheet and JavaScript use versioned filenames (`styles-v3.css`, `app-v3.js`) to avoid old GitHub Pages/browser cache collisions.
+
+
+## V4 layout changes
+
+- Removed the Time column from the Match Schedule.
+- Match dropdowns display player names only; tiers are represented by color.
+- Player name text is smaller so longer names fit more reliably.
+- Attendance no longer displays tier labels.
+- Attendance and Live player names still use the same skill-tier colors.
+- Versioned asset filenames (`styles-v4.css`, `storage-v4.js`, `app-v4.js`) avoid stale GitHub Pages/browser caches.
