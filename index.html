@@ -77,15 +77,22 @@
     </section>
 
     <section data-panel="matches" hidden>
-      <div class="section-head">
+      <div class="section-head match-section-head">
         <div>
-          <h2>Match Board</h2>
-          <p>Compact rotation view. Player fields are color-coded by skill tier and remain fully editable.</p>
+          <h2>Match Schedule</h2>
+          <p>Excel-style view. Edit players directly in the table; skill colors update automatically.</p>
         </div>
-        <button id="confirm-all" class="btn primary" type="button">Confirm all</button>
+        <div class="match-toolbar">
+          <label class="toolbar-check">
+            <input id="hide-completed" type="checkbox" />
+            Hide completed
+          </label>
+          <button id="confirm-all" class="btn primary" type="button">Confirm all</button>
+        </div>
       </div>
 
-      <div class="skill-legend" aria-label="Skill color legend">
+      <div class="skill-legend compact-legend" aria-label="Skill color legend">
+        <span>Skill:</span>
         <span class="skill-key tier-ap">A+</span>
         <span class="skill-key tier-a">A</span>
         <span class="skill-key tier-bp">B+</span>
@@ -95,7 +102,27 @@
         <span class="skill-key tier-q">?</span>
       </div>
 
-      <div id="match-list" class="rotation-board"></div>
+      <div class="sheet-wrap">
+        <table class="match-sheet">
+          <thead>
+            <tr>
+              <th class="col-rotation">Rot.</th>
+              <th class="col-time">Time</th>
+              <th class="col-court">Court</th>
+              <th class="col-type">Type</th>
+              <th>Team 1 - P1</th>
+              <th>Team 1 - P2</th>
+              <th class="col-vs">VS</th>
+              <th>Team 2 - P1</th>
+              <th>Team 2 - P2</th>
+              <th class="col-skill">Profile</th>
+              <th class="col-flag">Confirm</th>
+              <th class="col-flag">Done</th>
+            </tr>
+          </thead>
+          <tbody id="match-list"></tbody>
+        </table>
+      </div>
     </section>
 
     <section data-panel="attendance" hidden>

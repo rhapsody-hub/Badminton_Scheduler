@@ -101,3 +101,17 @@ The Matches tab has been redesigned into a rotation-based board:
 - Confirm and Done controls remain available on each court.
 - Matches remain fully editable.
 - The layout collapses cleanly for tablet and mobile screens.
+
+
+## Excel-style Matches view
+
+The Matches page now uses a dense spreadsheet-style table:
+
+- One row per match.
+- Sticky column headers.
+- Internal scrolling so the whole page stays compact.
+- Rotation boundaries are marked by stronger horizontal lines.
+- Player cells are directly color-coded by skill.
+- Confirm and Done are simple checkbox columns.
+- Optional **Hide completed** filter.
+- Manual player editing still works from each row.
