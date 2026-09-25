@@ -79,12 +79,23 @@
     <section data-panel="matches" hidden>
       <div class="section-head">
         <div>
-          <h2>Editable matches</h2>
-          <p>Change any player manually. Confirmed matches feed the attendance page.</p>
+          <h2>Match Board</h2>
+          <p>Compact rotation view. Player fields are color-coded by skill tier and remain fully editable.</p>
         </div>
         <button id="confirm-all" class="btn primary" type="button">Confirm all</button>
       </div>
-      <div id="match-list" class="stack"></div>
+
+      <div class="skill-legend" aria-label="Skill color legend">
+        <span class="skill-key tier-ap">A+</span>
+        <span class="skill-key tier-a">A</span>
+        <span class="skill-key tier-bp">B+</span>
+        <span class="skill-key tier-b">B</span>
+        <span class="skill-key tier-c">C</span>
+        <span class="skill-key tier-d">D</span>
+        <span class="skill-key tier-q">?</span>
+      </div>
+
+      <div id="match-list" class="rotation-board"></div>
     </section>
 
     <section data-panel="attendance" hidden>

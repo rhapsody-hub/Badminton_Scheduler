@@ -304,47 +304,138 @@
     ).join('');
   }
 
+  function selectedTierClass(playerId) {
+    const tier = memberById(playerId)?.tier || '?';
+    return tierClass[tier] || 'tier-q';
+  }
+
+  function teamAverage(playerA, playerB) {
+    const a = memberById(playerA);
+    const b = memberById(playerB);
+    if (!a || !b) return 0;
+    return (score[a.tier] + score[b.tier]) / 2;
+  }
+
+  function matchSkillLabel(match) {
+    const a = teamAverage(match.players[0], match.players[1]);
+    const b = teamAverage(match.players[2], match.players[3]);
+    const avg = (a + b) / 2;
+
+    if (avg >= 5.1) return 'High tier';
+    if (avg >= 4.0) return 'Upper / mid';
+    if (avg >= 3.0) return 'Mid / development';
+    return 'Development';
+  }
+
+
   function renderMatches() {
-    $('#match-list').innerHTML = state.matches.length
-      ? state.matches.map(m => {
-          const type = matchType(m.players);
-          const duplicate = new Set(m.players).size < 4;
+    if (!state.matches.length) {
+      $('#match-list').innerHTML = '<div class="card">No matches yet. Generate them from Session.</div>';
+      return;
+    }
 
-          return `
-            <div class="match-card ${m.completed ? 'done' : ''}" data-match="${esc(m.id)}">
-              <div class="match-top">
-                <div>
-                  <div><strong>Rotation ${m.round} · Court ${m.court}</strong></div>
-                  <div class="match-meta">
-                    ${fmtTime(m.start)}–${fmtTime(m.end)} · ${type}
-                    ${duplicate ? ' · ⚠ duplicate player' : ''}
-                  </div>
-                </div>
+    const grouped = [...state.matches]
+      .sort((a, b) => a.round - b.round || a.court - b.court)
+      .reduce((acc, match) => {
+        if (!acc.has(match.round)) acc.set(match.round, []);
+        acc.get(match.round).push(match);
+        return acc;
+      }, new Map());
 
-                <div class="match-controls">
-                  <label>
-                    <input class="confirm-match" type="checkbox" ${m.confirmed ? 'checked' : ''} />
-                    Confirmed
-                  </label>
+    $('#match-list').innerHTML = [...grouped.entries()].map(([round, matches]) => {
+      const first = matches[0];
+      const confirmedCount = matches.filter(m => m.confirmed).length;
+      const completedCount = matches.filter(m => m.completed).length;
 
-                  <label>
-                    <input class="complete-match" type="checkbox" ${m.completed ? 'checked' : ''} />
-                    Done
-                  </label>
-                </div>
+      const courtsHtml = matches.map(m => {
+        const type = matchType(m.players);
+        const duplicate = new Set(m.players).size < 4;
+        const skillLabel = matchSkillLabel(m);
+
+        return `
+          <article
+            class="compact-match ${m.completed ? 'done' : ''} ${!m.confirmed ? 'unconfirmed' : ''} ${duplicate ? 'duplicate' : ''}"
+            data-match="${esc(m.id)}"
+          >
+            <div class="compact-match-head">
+              <div class="court-title">
+                <span class="court-badge">${m.court}</span>
+                <span class="type-label">${type}</span>
               </div>
 
-              <div class="match-grid">
-                <select class="input player-select" data-slot="0">${playerOptions(m.players[0])}</select>
-                <select class="input player-select" data-slot="1">${playerOptions(m.players[1])}</select>
-                <div class="vs">VS</div>
-                <select class="input player-select" data-slot="2">${playerOptions(m.players[2])}</select>
-                <select class="input player-select" data-slot="3">${playerOptions(m.players[3])}</select>
+              <div class="match-state">
+                <label class="icon-check" title="Confirmed match">
+                  <input class="confirm-match" type="checkbox" ${m.confirmed ? 'checked' : ''} />
+                  Confirm
+                </label>
+                <label class="icon-check" title="Completed match">
+                  <input class="complete-match" type="checkbox" ${m.completed ? 'checked' : ''} />
+                  Done
+                </label>
               </div>
             </div>
-          `;
-        }).join('')
-      : '<div class="card">No matches yet. Generate them from Session.</div>';
+
+            <div class="teams-compact">
+              <div class="team-box">
+                <div class="team-label">Team A</div>
+                <select
+                  class="player-select-compact player-select ${selectedTierClass(m.players[0])}"
+                  data-slot="0"
+                  aria-label="Team A player 1"
+                >${playerOptions(m.players[0])}</select>
+                <select
+                  class="player-select-compact player-select ${selectedTierClass(m.players[1])}"
+                  data-slot="1"
+                  aria-label="Team A player 2"
+                >${playerOptions(m.players[1])}</select>
+              </div>
+
+              <div class="vs-badge">VS</div>
+
+              <div class="team-box">
+                <div class="team-label">Team B</div>
+                <select
+                  class="player-select-compact player-select ${selectedTierClass(m.players[2])}"
+                  data-slot="2"
+                  aria-label="Team B player 1"
+                >${playerOptions(m.players[2])}</select>
+                <select
+                  class="player-select-compact player-select ${selectedTierClass(m.players[3])}"
+                  data-slot="3"
+                  aria-label="Team B player 2"
+                >${playerOptions(m.players[3])}</select>
+              </div>
+            </div>
+
+            <div class="compact-match-foot">
+              <span class="skill-summary">${skillLabel}</span>
+              ${duplicate ? '<span class="match-warning">Duplicate player</span>' : ''}
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      return `
+        <section class="rotation-group">
+          <header class="rotation-header">
+            <div class="rotation-heading">
+              <span class="rotation-number">Rotation ${round}</span>
+              <span class="rotation-time">${fmtTime(first.start)}–${fmtTime(first.end)}</span>
+            </div>
+
+            <div class="rotation-stats">
+              <span class="mini-stat">${matches.length} courts</span>
+              <span class="mini-stat">${confirmedCount}/${matches.length} confirmed</span>
+              ${completedCount ? `<span class="mini-stat">${completedCount} done</span>` : ''}
+            </div>
+          </header>
+
+          <div class="rotation-courts">
+            ${courtsHtml}
+          </div>
+        </section>
+      `;
+    }).join('');
 
     $$('.player-select').forEach(el => el.addEventListener('change', e => {
       const card = e.target.closest('[data-match]');
@@ -358,7 +449,7 @@
     $$('.confirm-match').forEach(el => el.addEventListener('change', e => {
       state.matches.find(x => x.id === e.target.closest('[data-match]').dataset.match).confirmed = e.target.checked;
       saveState('Match confirmation saved.');
-      renderAttendance();
+      renderAll();
     }));
 
     $$('.complete-match').forEach(el => el.addEventListener('change', e => {

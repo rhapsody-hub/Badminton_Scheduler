@@ -87,3 +87,17 @@ Upload all four web files to the repository root:
 - `app.js`
 
 Then enable GitHub Pages from the repository settings.
+
+
+## Compact color-coded match board
+
+The Matches tab has been redesigned into a rotation-based board:
+
+- Courts are grouped under each rotation.
+- All 3 simultaneous courts can be scanned together on desktop.
+- Player selectors are directly color-coded by skill tier.
+- A+/A share the blue family, B+/B share the green family.
+- C, D, and unknown tiers use progressively softer yellow, peach, and gray.
+- Confirm and Done controls remain available on each court.
+- Matches remain fully editable.
+- The layout collapses cleanly for tablet and mobile screens.
