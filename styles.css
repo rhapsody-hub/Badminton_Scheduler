@@ -1860,3 +1860,9 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Always respect programmatic visibility flags. */
+[hidden] {
+  display: none !important;
+}
