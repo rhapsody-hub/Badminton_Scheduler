@@ -1506,3 +1506,357 @@ label {
   padding: 0.45rem 0.7rem;
   font-size: 0.75rem;
 }
+
+/* =========================================================
+   Shared Cloud Workspace
+   ========================================================= */
+.cloud-panel {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #fff;
+}
+.cloud-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cloud-panel-head > div { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.cloud-panel-head strong { font-size:.82rem; }
+#cloud-status-text { color:var(--muted); font-size:.68rem; overflow-wrap:anywhere; }
+.cloud-sync-badge { flex:0 0 auto; display:inline-flex; align-items:center; min-height:25px; padding:0 8px; border-radius:999px; font-size:.64rem; font-weight:900; background:#e7e9ed; color:#4b5563; }
+.cloud-sync-badge.synced,.cloud-sync-badge.remote-update { background:#dff2e4; color:#276738; }
+.cloud-sync-badge.saving,.cloud-sync-badge.loading { background:#e8f0fb; color:#315f9e; }
+.cloud-sync-badge.error { background:#fae5e5; color:#9a3434; }
+.cloud-sync-badge.workspace,.cloud-sync-badge.signedout { background:#fff0c7; color:#7c5b10; }
+.cloud-config-message { margin-top:9px; padding:8px 10px; border-radius:7px; background:#fff7dd; color:#6d581d; font-size:.72rem; }
+.cloud-auth-row,.cloud-user-row,.cloud-active-workspace { margin-top:9px; display:flex; align-items:end; gap:8px; flex-wrap:wrap; }
+.cloud-email-label { min-width:min(320px,100%); }
+.cloud-authenticated { margin-top:8px; }
+.cloud-user-row { justify-content:space-between; align-items:center; color:#546273; font-size:.72rem; }
+.cloud-workspace-picker { margin-top:9px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.cloud-picker-column { display:flex; align-items:end; gap:6px; min-width:0; }
+.cloud-picker-column label { min-width:0; flex:1 1 auto; }
+.cloud-picker-column .btn { flex:0 0 auto; }
+.cloud-active-workspace { justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:9px; color:#4f5f71; font-size:.72rem; }
+.cloud-code-wrap { margin-left:10px; white-space:nowrap; }
+.cloud-code-wrap code { padding:2px 5px; border-radius:5px; background:#eef2f6; font-size:.72rem; font-weight:900; }
+.cloud-active-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.cloud-panel .btn { min-height:36px; padding:.45rem .72rem; font-size:.72rem; }
+@media (max-width:850px) { .cloud-workspace-picker { grid-template-columns:1fr; } }
+@media (max-width:600px) {
+  .cloud-panel-head,.cloud-active-workspace { align-items:flex-start; flex-direction:column; }
+  .cloud-picker-column { align-items:stretch; flex-direction:column; }
+  .cloud-picker-column .btn,.cloud-auth-row .btn { width:100%; }
+}
+
+
+/* =========================================================
+   Live match operations
+   ========================================================= */
+
+.live-summary-main {
+  margin: 8px 0 12px;
+}
+
+.summary-grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.live-control-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.4fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.live-control-grid .card {
+  min-width: 0;
+}
+
+.attendance-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.attendance-played-count {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.court-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 7px;
+}
+
+.court-live-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px;
+  background: #fff;
+}
+
+.court-live-card.empty {
+  min-height: 108px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  background: #f7f9fb;
+}
+
+.court-live-card.active {
+  border-width: 2px;
+}
+
+.court-live-title {
+  font-size: 0.86rem;
+  font-weight: 950;
+}
+
+.court-live-empty {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.court-live-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.court-live-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.court-live-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.court-live-team {
+  display: grid;
+  gap: 3px;
+}
+
+.court-live-team .pill {
+  width: 100%;
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.court-live-vs {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 950;
+}
+
+.court-live-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.court-live-actions .btn {
+  min-height: 32px;
+  padding: 0.36rem 0.58rem;
+  font-size: 0.68rem;
+}
+
+.match-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.status-available {
+  background: #e6f3e8;
+  color: #2c6a39;
+}
+
+.status-playing {
+  background: #dcecff;
+  color: #235b9e;
+}
+
+.status-completed {
+  background: #eceff3;
+  color: #626d7b;
+}
+
+.available-live-block {
+  margin-top: 6px;
+}
+
+.live-block-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.live-block-head p,
+.schedule-section-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.available-match-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+  gap: 8px;
+}
+
+.available-match-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px;
+  background: #fff;
+}
+
+.available-match-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.available-match-head strong {
+  font-size: 0.78rem;
+}
+
+.available-priority {
+  margin-bottom: 2px;
+  color: var(--accent);
+  font-size: 0.61rem;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.available-count-note {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.63rem;
+}
+
+.available-court-select,
+.grid-court-select {
+  min-height: 28px;
+  border: 1px solid #cad2dc;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 5px;
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.available-teams-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  gap: 4px;
+  align-items: center;
+  margin-top: 7px;
+}
+
+.available-team {
+  display: grid;
+  gap: 3px;
+}
+
+.available-player-select {
+  width: 100%;
+  min-width: 0;
+  height: 29px;
+  border: 1px solid rgba(31, 41, 55, 0.14);
+  border-radius: 6px;
+  padding: 0 18px 0 5px;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
+.available-vs {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 950;
+}
+
+.available-match-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.63rem;
+}
+
+.available-match-foot .btn {
+  min-height: 32px;
+  padding: 0.37rem 0.62rem;
+  font-size: 0.68rem;
+}
+
+.schedule-section-head {
+  margin: 14px 0 7px;
+}
+
+.schedule-section-head h3 {
+  margin: 0;
+}
+
+.court-grid-cell.playing {
+  outline: 2px solid rgba(49, 112, 183, 0.32);
+  outline-offset: -2px;
+}
+
+.court-name-line {
+  min-width: 0;
+  gap: 4px;
+}
+
+.grid-court-select {
+  max-width: 88px;
+}
+
+.match-count-number {
+  min-width: 34px;
+}
+
+@media (max-width: 900px) {
+  .live-control-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .summary-grid.four {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .available-match-grid {
+    grid-template-columns: 1fr;
+  }
+}

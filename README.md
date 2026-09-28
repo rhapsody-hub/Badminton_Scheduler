@@ -260,3 +260,119 @@ The browser downloads an Excel-compatible `.xls` file containing:
 - Completed status
 
 The export is generated entirely in the browser and does not require an external JavaScript library or backend.
+
+# Shared multi-device setup with Supabase
+
+This build supports one shared live workspace for multiple coordinators. When coordinators sign in and open the same workspace, the current member list, session settings, generated/edited schedule, confirmations, completed matches, attendance, and Session History are stored centrally and can be loaded on another device.
+
+`localStorage` is still used as a local cache/fallback, but it is no longer the authoritative shared storage while a cloud workspace is active.
+
+## One-time setup
+
+1. Create a Supabase project.
+2. Open **SQL Editor** and run all of `supabase-setup.sql`.
+3. In **Authentication**, enable email sign-in / magic links.
+4. In Supabase Authentication URL configuration, set your GitHub Pages URL as the Site URL and add the same address as an allowed Redirect URL.
+5. In Supabase Project Settings / API, copy your **Project URL** and **Publishable key** (or anon key if your project still labels it that way).
+6. Edit `config.js` and replace:
+   - `YOUR_SUPABASE_URL`
+   - `YOUR_SUPABASE_PUBLISHABLE_KEY`
+7. Upload these files to GitHub:
+   - `index.html`
+   - `styles.css`
+   - `config.js`
+   - `storage.js`
+   - `cloud.js`
+   - `app.js`
+
+Do **not** put a `service_role` key in `config.js`. Only the browser-safe publishable/anon key belongs there. Access is restricted with Supabase Auth and Row Level Security.
+
+## First coordinator
+
+1. Open the website.
+2. Enter your coordinator email and request a sign-in link.
+3. Open the link from the email.
+4. Create a shared workspace.
+5. The website shows an 8-character join code.
+6. Share that join code only with your other coordinators.
+
+## Additional coordinators
+
+1. Open the same website on their device.
+2. Sign in with their own email.
+3. Enter the workspace join code.
+4. Open the shared workspace.
+
+They then load the same current session and shared history.
+
+## Schedule behavior
+
+Opening the website no longer automatically generates or reshuffles a schedule. A new lineup is created only when someone explicitly presses **Generate / Reshuffle matches**. This prevents a second device from accidentally creating a different schedule.
+
+## Live collaboration
+
+The current workspace state is stored in Supabase and subscribed through Supabase Realtime. A change by another coordinator can refresh the shared state on other connected devices.
+
+The current architecture uses one JSON state row per workspace, so simultaneous edits use a last-write-wins model. This is suitable for a small coordinator team. If the project grows into heavy simultaneous editing, the data can later be normalized into separate Members, Matches, Attendance, and Sessions tables.
+
+
+## Live match control update
+
+The Matches page is now the main session-control screen.
+
+### Match lifecycle
+
+Matches now move through:
+
+**Available → Playing → Completed**
+
+A match cannot be marked complete directly from Available. It must be started first.
+
+### Played counts
+
+A player's Played count increases immediately when their match is started.
+
+The match-count display is:
+
+`Played / Scheduled`
+
+If a Playing match is returned to Available with **Undo start**, those four Played counts decrease again.
+
+### Available-match priority
+
+Available matches require:
+
+- Match is confirmed
+- All four players are marked present
+- None of the four players are currently playing
+
+Available matches are sorted by the players' current Played counts. Matches containing players with fewer Played appearances are placed first.
+
+### Court tracking
+
+The Matches page includes **Courts Playing Now**. Each physical court shows the current match, players, and Complete button.
+
+Before a match starts, its court can be changed from either:
+
+- Available Matches
+- Planned Schedule
+
+If another unstarted match in the same planned rotation uses the selected court, the two court assignments are swapped.
+
+A match cannot start if its selected physical court is already occupied by a Playing match.
+
+### Player switching
+
+Players can be changed before a match starts.
+
+When the newly selected player is already scheduled in another unstarted match, the website prompts for which scheduled match should be used for the swap. The displaced player is moved into that selected match.
+
+Players currently Playing cannot be moved.
+
+### Attendance
+
+Attendance has been moved into the Matches page. The separate Attendance & Live page/tab has been removed.
+
+### Shared cloud behavior
+
+All Playing status, start/completion state, court assignments, player swaps, attendance changes, and Played counts are part of the same shared workspace state and therefore sync through Supabase like the rest of the session.

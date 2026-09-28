@@ -47,7 +47,10 @@
             end: Math.max(0, Number(match.end) || 0),
             players: match.players.map(Number),
             confirmed: Boolean(match.confirmed),
-            completed: Boolean(match.completed)
+            playing: Boolean(match.playing) && !Boolean(match.completed),
+            startedAt: match.startedAt ? String(match.startedAt) : null,
+            completed: Boolean(match.completed),
+            completedAt: match.completedAt ? String(match.completedAt) : null
           }))
           .filter(match => match.players.every(id => validMemberIds.has(id)))
       : [];
