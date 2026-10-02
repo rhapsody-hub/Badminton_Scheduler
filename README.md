@@ -501,3 +501,27 @@ Two Group-page interaction issues were corrected:
 2. Group membership checkboxes no longer trigger a full application re-render. This keeps checkbox positions stable while selecting several members and prevents missed / unreliable clicks.
 
 Membership changes are still saved immediately and synchronized to the shared workspace.
+
+
+## Simplified Session page
+
+The Session page has been reduced to the controls used most often:
+
+### Basic setup
+- Session name
+- Number of courts
+
+### Participants
+- Import a group
+- Add an individual
+- Participant counts
+- Optional expandable Men / Women participant list
+- Clear participants
+
+### Advanced settings
+Duration, rotation length, and match mix are now inside a collapsed **Advanced settings** section.
+
+### Actions
+The primary action is **Generate / Reshuffle matches**, followed by Save Session. Reset actions are visually secondary.
+
+The previous session summary-card row was removed to reduce visual clutter.

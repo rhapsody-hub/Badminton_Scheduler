@@ -1941,25 +1941,6 @@
   }
 
   function renderSession() {
-    const participants = getSessionMembers();
-    const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
-
-    const cards = [
-      ['Participants', participants.length],
-      ['Groups', state.groups.length],
-      ['Rotations', rounds],
-      ['Planned matches', state.matches.length]
-    ];
-
-    if ($('#session-summary')) {
-      $('#session-summary').innerHTML = cards.map(([label,value]) => `
-        <div class="summary-card">
-          <div class="label">${label}</div>
-          <div class="value">${value}</div>
-        </div>
-      `).join('');
-    }
-
     renderSessionParticipants();
   }
 
@@ -2460,6 +2441,21 @@
     }
 
     addSessionMember(id);
+  });
+
+  $('#toggle-session-advanced').addEventListener('click', () => {
+    const body = $('#session-advanced-body');
+    const button = $('#toggle-session-advanced');
+    const indicator = $('#session-advanced-indicator');
+    if (!body || !button) return;
+
+    const opening = body.hidden;
+    body.hidden = !opening;
+    button.setAttribute('aria-expanded', opening ? 'true' : 'false');
+
+    if (indicator) {
+      indicator.textContent = opening ? '−' : '+';
+    }
   });
 
   $('#session-clear-participants').addEventListener('click', () => {

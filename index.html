@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=15" />
+  <link rel="stylesheet" href="styles.css?refresh=16" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -155,71 +155,66 @@
     </section>
 
     <section id="session" data-panel="session" hidden>
-      <div class="card simplified-session-card">
-        <div class="section-head">
+      <div class="card session-simple-card">
+        <div class="section-head session-simple-head">
           <div>
             <h2>Session</h2>
-            <p>Set the session, import one or more groups, then generate the matches.</p>
+            <p>Choose the players, set the courts, then generate the matches.</p>
           </div>
+
+          <div id="session-participant-summary" class="session-participant-summary session-summary-inline"></div>
         </div>
 
-        <div class="session-config-grid">
-          <label>
+        <div class="session-basic-grid">
+          <label class="session-name-field">
             Session name
-            <input id="session-name" class="input" type="text" maxlength="80" placeholder="e.g. Friday Night Session" />
+            <input
+              id="session-name"
+              class="input"
+              type="text"
+              maxlength="80"
+              placeholder="e.g. Friday Night Session"
+            />
           </label>
 
           <label>
             Courts
-            <input id="courts" class="input" type="number" min="1" max="12" value="3" />
-          </label>
-
-          <label>
-            Duration
-            <div class="input-suffix-wrap">
-              <input id="duration" class="input" type="number" min="30" max="720" step="10" value="180" />
-              <span>min</span>
-            </div>
-          </label>
-
-          <label>
-            Rotation
-            <div class="input-suffix-wrap">
-              <input id="rotation-min" class="input" type="number" min="10" max="60" value="18" />
-              <span>min</span>
-            </div>
-          </label>
-
-          <label>
-            Match mix
-            <select id="mix" class="input">
-              <option value="balanced">Balanced</option>
-              <option value="less-mixed" selected>Fewer mixed doubles</option>
-              <option value="more-mixed">More mixed doubles</option>
-            </select>
+            <input
+              id="courts"
+              class="input"
+              type="number"
+              min="1"
+              max="12"
+              value="3"
+            />
           </label>
         </div>
 
-        <div class="session-import-panel">
-          <div class="session-import-head">
+        <section class="session-simple-section">
+          <div class="session-simple-section-head">
             <div>
-              <h3>Participants</h3>
-              <p>Import a group. Importing another group adds its members without duplicates.</p>
+              <h3>Add participants</h3>
+              <p>Import one or more groups. Duplicate members are ignored automatically.</p>
             </div>
-            <div id="session-participant-summary" class="session-participant-summary"></div>
           </div>
 
-          <div class="session-import-row">
-            <select id="session-group-select" class="input"></select>
-            <button id="session-import-group" class="btn primary" type="button">Import group</button>
+          <div class="session-import-simple">
+            <div class="session-import-primary">
+              <select id="session-group-select" class="input"></select>
+              <button id="session-import-group" class="btn primary" type="button">
+                Import group
+              </button>
+            </div>
 
-            <span class="session-import-divider">or</span>
-
-            <select id="session-add-individual-select" class="input"></select>
-            <button id="session-add-individual" class="btn" type="button">Add person</button>
+            <div class="session-import-secondary">
+              <select id="session-add-individual-select" class="input"></select>
+              <button id="session-add-individual" class="btn" type="button">
+                Add person
+              </button>
+            </div>
           </div>
 
-          <div class="session-participant-toolbar">
+          <div class="session-participant-toolbar simplified">
             <button
               id="toggle-session-participants"
               class="btn"
@@ -227,9 +222,11 @@
               aria-expanded="false"
             >Show participants</button>
 
-            <button id="session-clear-participants" class="btn danger" type="button">
-              Clear participants
-            </button>
+            <button
+              id="session-clear-participants"
+              class="btn danger"
+              type="button"
+            >Clear participants</button>
           </div>
 
           <div id="session-participants-body" class="session-participants-body collapsed">
@@ -246,7 +243,7 @@
                   id="session-men-search"
                   class="input session-member-search"
                   type="search"
-                  placeholder="Search session men..."
+                  placeholder="Search men..."
                   autocomplete="off"
                 />
 
@@ -265,7 +262,7 @@
                   id="session-women-search"
                   class="input session-member-search"
                   type="search"
-                  placeholder="Search session women..."
+                  placeholder="Search women..."
                   autocomplete="off"
                 />
 
@@ -273,16 +270,70 @@
               </section>
             </div>
           </div>
+        </section>
+
+        <section class="session-advanced-wrap">
+          <button
+            id="toggle-session-advanced"
+            class="session-advanced-toggle"
+            type="button"
+            aria-expanded="false"
+          >
+            <span>Advanced settings</span>
+            <span id="session-advanced-indicator">+</span>
+          </button>
+
+          <div id="session-advanced-body" class="session-advanced-body" hidden>
+            <div class="session-advanced-grid">
+              <label>
+                Duration
+                <div class="input-suffix-wrap">
+                  <input id="duration" class="input" type="number" min="30" max="720" step="10" value="180" />
+                  <span>min</span>
+                </div>
+              </label>
+
+              <label>
+                Rotation
+                <div class="input-suffix-wrap">
+                  <input id="rotation-min" class="input" type="number" min="10" max="60" value="18" />
+                  <span>min</span>
+                </div>
+              </label>
+
+              <label>
+                Match mix
+                <select id="mix" class="input">
+                  <option value="balanced">Balanced</option>
+                  <option value="less-mixed" selected>Fewer mixed doubles</option>
+                  <option value="more-mixed">More mixed doubles</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <div class="session-action-bar">
+          <button id="generate" class="btn primary session-generate-btn" type="button">
+            Generate / Reshuffle matches
+          </button>
+
+          <button id="save-session" class="btn" type="button">
+            Save Session
+          </button>
+
+          <div class="session-more-actions">
+            <button id="clear-completed" class="btn" type="button">
+              Reset match progress
+            </button>
+
+            <button id="reset-saved" class="btn danger" type="button">
+              Reset session
+            </button>
+          </div>
         </div>
 
-        <div id="session-summary" class="summary-grid compact-session-summary"></div>
-
-        <div class="actions session-primary-actions">
-          <button id="generate" class="btn primary" type="button">Generate / Reshuffle matches</button>
-          <button id="save-session" class="btn" type="button">Save Session</button>
-          <button id="clear-completed" class="btn" type="button">Reset match progress</button>
-          <button id="reset-saved" class="btn danger" type="button">Reset current session</button>
-        </div>
+        <div id="session-summary" hidden></div>
       </div>
     </section>
 
@@ -399,9 +450,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=15" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=15" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=15" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=15" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=16" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=16" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=16" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=16" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>
