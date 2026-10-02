@@ -3161,3 +3161,40 @@ label {
   font-size: 14px;
   font-weight: 700;
 }
+
+
+/* =========================================================
+   Session date
+   ========================================================= */
+
+.session-basic-grid {
+  grid-template-columns: minmax(260px, 1fr) minmax(155px, 0.55fr) 110px;
+}
+
+#session-date {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  padding-left: 10px;
+  padding-right: 8px;
+}
+
+@media (max-width: 760px) {
+  .session-basic-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .session-name-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .session-basic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-name-field {
+    grid-column: auto;
+  }
+}

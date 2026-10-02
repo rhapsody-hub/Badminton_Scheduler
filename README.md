@@ -537,3 +537,12 @@ The Match Mix dropdown and the other Advanced Settings inputs now use:
 - corrected line height
 
 This prevents native select text from being vertically clipped in Microsoft Edge and similar browsers.
+
+
+## Session date
+
+Session creation now includes a **Session date** field.
+
+The selected date is saved with the current session, synchronized through the shared workspace, included in saved Session History, restored with old sessions, and included in Excel exports.
+
+New sessions default to the device's current local date.

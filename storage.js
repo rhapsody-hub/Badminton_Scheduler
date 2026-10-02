@@ -80,6 +80,9 @@
         ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
         : members.map(member => member.id),
       sessionName: String(raw.sessionName || '').slice(0, 80),
+      sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(String(raw.sessionDate || ''))
+        ? String(raw.sessionDate)
+        : '',
       courts: Math.max(1, Math.min(12, Number(raw.courts) || 3)),
       duration: Math.max(30, Math.min(720, Number(raw.duration) || 180)),
       rotationMin: Math.max(10, Math.min(60, Number(raw.rotationMin) || 18)),

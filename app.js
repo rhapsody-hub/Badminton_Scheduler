@@ -18,12 +18,31 @@
   const score = {'A+':6,'A':5,'B+':4.5,'B':4,'C':3,'D':2,'?':3.5};
   const tierClass = {'A+':'tier-ap','A':'tier-a','B+':'tier-bp','B':'tier-b','C':'tier-c','D':'tier-d','?':'tier-q'};
 
+  function localDateValue(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatSessionDate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return 'No date';
+    const [year, month, day] = String(value).split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
   const defaultState = () => ({
     members: defaultMembers.map(m => ({ ...m })),
     groups: [],
     sessionMemberIds: [],
     matches: [],
     sessionName: '',
+    sessionDate: localDateValue(),
     courts: 3,
     duration: 180,
     rotationMin: 18,
@@ -206,6 +225,7 @@
         players: [...m.players]
       })),
       sessionName: state.sessionName || '',
+      sessionDate: state.sessionDate || '',
       courts: state.courts,
       duration: state.duration,
       rotationMin: state.rotationMin,
@@ -263,6 +283,7 @@
 
   function syncSessionInputs() {
     $('#session-name').value = state.sessionName || '';
+    $('#session-date').value = state.sessionDate || localDateValue();
     $('#courts').value = state.courts;
     $('#duration').value = state.duration;
     $('#rotation-min').value = state.rotationMin;
@@ -1682,6 +1703,7 @@
 
         <table>
           <tr><td class="title" colspan="4">${excelEscape(sessionName)}</td></tr>
+          <tr><td class="label">Session date</td><td>${excelEscape(formatSessionDate(state.sessionDate))}</td></tr>
           <tr><td class="label">Exported</td><td>${excelEscape(generatedAt)}</td></tr>
           <tr><td class="label">Courts</td><td>${state.courts}</td></tr>
           <tr><td class="label">Duration</td><td>${state.duration} min</td></tr>
@@ -2184,21 +2206,13 @@
   }
 
   function defaultHistoryName() {
-    const now = new Date();
-    const datePart = now.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-    const timePart = now.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    return `Session ${datePart} ${timePart}`;
+    const datePart = formatSessionDate(state.sessionDate || localDateValue());
+    return `Session ${datePart}`;
   }
 
   async function saveSessionToHistory() {
     state.sessionName = $('#session-name').value.trim().slice(0, 80);
+    state.sessionDate = $('#session-date').value || localDateValue();
     const name = state.sessionName || defaultHistoryName();
 
     try {
@@ -2324,6 +2338,7 @@
               <span><strong>${stats.players}</strong> players</span><span><strong>${stats.matches}</strong> matches</span><span><strong>${stats.completed}</strong> completed</span><span><strong>${stats.present}</strong> attended</span><span><strong>${record.state.courts}</strong> courts</span><span><strong>${record.state.duration}</strong> min</span>
             </div>
             <details class="history-details"><summary>View session details</summary><div class="history-detail-content">
+              <div><strong>Session date:</strong> ${esc(formatSessionDate(record.state.sessionDate))}</div>
               <div><strong>Match mix:</strong> ${esc(record.state.mix)}</div><div><strong>Rotation:</strong> ${record.state.rotationMin} min</div><div><strong>Confirmed:</strong> ${stats.confirmed}/${stats.matches}</div><div class="history-player-counts"><strong>Player matches:</strong> ${esc(countText)}</div>
             </div></details>
           </div>
@@ -2667,6 +2682,12 @@
   $('#session-name').addEventListener('change', () => {
     state.sessionName = $('#session-name').value.trim().slice(0, 80);
     saveState('Session name saved.');
+  });
+
+  $('#session-date').addEventListener('change', () => {
+    state.sessionDate = $('#session-date').value || localDateValue();
+    $('#session-date').value = state.sessionDate;
+    saveState('Session date saved.');
   });
 
   ['courts','duration','rotation-min','mix'].forEach(id => {
