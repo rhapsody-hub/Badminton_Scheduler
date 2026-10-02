@@ -392,3 +392,38 @@ Each row now contains only:
 - Remove
 
 Each group also has its own **+ Add** button.
+
+
+## Master members vs session participants
+
+The master **Members** page is now a reusable directory.
+
+Each member has:
+
+- Gender
+- Skill tier
+- Membership type: **Regular** or **Non-member**
+
+The **Session** page has its own participant list. A person can remain in the master directory without being included in every badminton session.
+
+Session participants are separated into **Men** and **Women**, with Regular / Non-member status shown on each row.
+
+You can:
+
+- Add an individual master member to the current session
+- Add all Regular members at once
+- Remove any participant from the current session
+- Clear all session participants
+- Search the Men and Women session lists separately
+
+Removing someone from a session does **not** delete them from the master member directory.
+
+When a participant is removed:
+
+- Their attendance is cleared
+- Their uncompleted / Playing matches are removed
+- Completed matches are retained as historical records
+
+Match generation, attendance, Available Matches, player swapping, player counts, and Excel export now use only the current session's participant list.
+
+No Supabase migration is needed. `memberType` and `sessionMemberIds` are stored inside the existing shared JSON workspace state.

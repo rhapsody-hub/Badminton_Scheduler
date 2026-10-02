@@ -11,6 +11,7 @@
     name: x[0],
     gender: x[1],
     tier: x[2],
+    memberType: 'regular',
     present: false
   }));
 
@@ -19,6 +20,7 @@
 
   const defaultState = () => ({
     members: defaultMembers.map(m => ({ ...m })),
+    sessionMemberIds: defaultMembers.map(m => m.id),
     matches: [],
     sessionName: '',
     courts: 3,
@@ -43,13 +45,54 @@
   const memberById = (id) => state.members.find(m => m.id === Number(id));
   const memberName = (id) => memberById(id)?.name || '—';
 
+  function normalizeRuntimeMembership() {
+    state.members.forEach(member => {
+      if (member.memberType !== 'non-member') member.memberType = 'regular';
+    });
+
+    const validIds = new Set(state.members.map(member => member.id));
+
+    if (!Array.isArray(state.sessionMemberIds)) {
+      state.sessionMemberIds = state.members.map(member => member.id);
+    } else {
+      state.sessionMemberIds = [
+        ...new Set(
+          state.sessionMemberIds
+            .map(Number)
+            .filter(id => validIds.has(id))
+        )
+      ];
+    }
+  }
+
+  function getSessionMemberIds() {
+    normalizeRuntimeMembership();
+    return [...state.sessionMemberIds];
+  }
+
+  function getSessionMembers() {
+    const ids = new Set(getSessionMemberIds());
+    return state.members.filter(member => ids.has(member.id));
+  }
+
+  function isSessionMember(id) {
+    return getSessionMemberIds().includes(Number(id));
+  }
+
+  function membershipLabel(member) {
+    return member?.memberType === 'non-member' ? 'Non-member' : 'Regular';
+  }
+
   function setStatus(text) {
     $('#status').textContent = text || '';
   }
 
   function snapshotState() {
+    normalizeRuntimeMembership();
+
     return {
       members: state.members.map(m => ({ ...m })),
+      sessionMemberIds: [...state.sessionMemberIds],
       matches: state.matches.map(m => ({
         ...m,
         players: [...m.players]
@@ -378,14 +421,15 @@
 
     const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
     const slotsPerRound = state.courts * 4;
+    const participants = getSessionMembers();
 
-    if (state.members.length < 4) {
-      setStatus('Add at least 4 members first.');
+    if (participants.length < 4) {
+      setStatus('Add at least 4 participants to this session before generating matches.');
       return;
     }
 
-    const plays = new Map(state.members.map(m => [m.id, 0]));
-    const last = new Map(state.members.map(m => [m.id, -99]));
+    const plays = new Map(participants.map(m => [m.id, 0]));
+    const last = new Map(participants.map(m => [m.id, -99]));
     const partnerCount = new Map();
     const opponentCount = new Map();
     const matches = [];
@@ -393,11 +437,11 @@
     const pairKey = (a, b) => [a, b].sort((x,y) => x-y).join('-');
 
     for (let round = 1; round <= rounds; round++) {
-      const tieMap = randomTieMap(state.members);
+      const tieMap = randomTieMap(participants);
 
       // Participation count remains the strongest priority.
       // Waiting time is second. Randomness only breaks otherwise-similar choices.
-      let candidates = [...state.members]
+      let candidates = [...participants]
         .sort((a,b) => {
           const pa = plays.get(a.id);
           const pb = plays.get(b.id);
@@ -413,7 +457,7 @@
 
           return tieMap.get(a.id) - tieMap.get(b.id);
         })
-        .slice(0, Math.min(slotsPerRound, state.members.length));
+        .slice(0, Math.min(slotsPerRound, participants.length));
 
       // Shuffle selected players before court assignment so every Generate click
       // produces a genuinely different lineup while preserving the same fair pool.
@@ -552,21 +596,30 @@
     const womenContainer = $('#women-member-list');
     if (!menContainer || !womenContainer) return;
 
+    normalizeRuntimeMembership();
+
     const menQuery = ($('#men-member-search')?.value || '').trim().toLowerCase();
     const womenQuery = ($('#women-member-search')?.value || '').trim().toLowerCase();
 
     const matchesSearch = (member, query) => {
       if (!query) return true;
+
+      const typeText = membershipLabel(member).toLowerCase();
+
       return (
         member.name.toLowerCase().includes(query) ||
-        member.tier.toLowerCase().includes(query)
+        member.tier.toLowerCase().includes(query) ||
+        typeText.includes(query)
       );
     };
 
     const renderGroup = (gender, container, query) => {
       const members = state.members
         .filter(member => member.gender === gender)
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) =>
+          a.memberType.localeCompare(b.memberType) ||
+          a.name.localeCompare(b.name)
+        );
 
       const filtered = members.filter(member => matchesSearch(member, query));
 
@@ -577,7 +630,7 @@
             const targetGender = gender === 'Man' ? 'Woman' : 'Man';
 
             return `
-              <div class="member-compact-row" data-member="${member.id}">
+              <div class="member-compact-row member-compact-row-with-type" data-member="${member.id}">
                 <input
                   class="member-compact-name"
                   value="${esc(member.name)}"
@@ -592,6 +645,14 @@
                   ${['A+','A','B+','B','C','D','?']
                     .map(tier => `<option ${member.tier === tier ? 'selected' : ''}>${tier}</option>`)
                     .join('')}
+                </select>
+
+                <select
+                  class="member-type-select ${member.memberType === 'non-member' ? 'member-type-nonmember' : 'member-type-regular'}"
+                  aria-label="Membership type for ${esc(member.name)}"
+                >
+                  <option value="regular" ${member.memberType === 'regular' ? 'selected' : ''}>Regular</option>
+                  <option value="non-member" ${member.memberType === 'non-member' ? 'selected' : ''}>Non-member</option>
                 </select>
 
                 <button
@@ -626,7 +687,12 @@
     const menCount = $('#men-member-count');
     const womenCount = $('#women-member-count');
 
-    if (totalBadge) totalBadge.textContent = `${state.members.length} members`;
+    const regularCount = state.members.filter(member => member.memberType === 'regular').length;
+    const nonMemberCount = state.members.length - regularCount;
+
+    if (totalBadge) {
+      totalBadge.textContent = `${state.members.length} total · ${regularCount} regular · ${nonMemberCount} non-member`;
+    }
 
     if (menCount) {
       menCount.textContent = menQuery
@@ -664,6 +730,21 @@
       });
     });
 
+    $$('.member-type-select').forEach(select => {
+      select.addEventListener('change', event => {
+        const row = event.target.closest('[data-member]');
+        const member = memberById(row.dataset.member);
+        if (!member) return;
+
+        member.memberType = event.target.value === 'non-member'
+          ? 'non-member'
+          : 'regular';
+
+        saveState(`${member.name} marked as ${membershipLabel(member)}.`);
+        renderAll();
+      });
+    });
+
     $$('.member-gender-move').forEach(button => {
       button.addEventListener('click', event => {
         const row = event.target.closest('[data-member]');
@@ -683,12 +764,19 @@
         const member = memberById(id);
         if (!member) return;
 
-        const confirmed = window.confirm(`Remove ${member.name} from the member list?`);
+        const inSession = isSessionMember(id);
+        const confirmed = window.confirm(
+          inSession
+            ? `Remove ${member.name} from the master directory? They will also be removed from the current session and all of their matches.`
+            : `Remove ${member.name} from the master member directory?`
+        );
         if (!confirmed) return;
 
         state.members = state.members.filter(item => item.id !== id);
+        state.sessionMemberIds = getSessionMemberIds().filter(memberId => memberId !== id);
         state.matches = state.matches.filter(match => !match.players.includes(id));
-        saveState('Member removed and session saved.');
+
+        saveState('Member removed from the directory and current session.');
         renderAll();
       });
     });
@@ -703,10 +791,11 @@
       name: `New ${label}`,
       gender,
       tier: '?',
+      memberType: 'regular',
       present: false
     });
 
-    saveState(`New ${label.toLowerCase()} added and saved.`);
+    saveState(`New ${label.toLowerCase()} added to the member directory.`);
 
     const search = gender === 'Woman'
       ? $('#women-member-search')
@@ -726,15 +815,192 @@
     });
   }
 
+  function addSessionMember(memberId) {
+    const id = Number(memberId);
+    const member = memberById(id);
+    if (!member) return;
+
+    const ids = getSessionMemberIds();
+    if (ids.includes(id)) {
+      setStatus(`${member.name} is already in this session.`);
+      return;
+    }
+
+    state.sessionMemberIds = [...ids, id];
+    member.present = false;
+
+    saveState(`${member.name} added to this session.`);
+    renderAll();
+  }
+
+  function removeSessionMember(memberId) {
+    const id = Number(memberId);
+    const member = memberById(id);
+    if (!member || !isSessionMember(id)) return;
+
+    const relatedMatches = state.matches.filter(match => match.players.includes(id));
+    const activeOrFuture = relatedMatches.filter(match => !match.completed);
+    const playing = activeOrFuture.filter(match => match.playing);
+
+    let message = `Remove ${member.name} from this session?`;
+
+    if (activeOrFuture.length) {
+      message += ` ${activeOrFuture.length} uncompleted match${activeOrFuture.length === 1 ? '' : 'es'} containing this player will be removed.`;
+    }
+
+    if (playing.length) {
+      message += ` This includes ${playing.length} match currently marked Playing.`;
+    }
+
+    if (relatedMatches.some(match => match.completed)) {
+      message += ' Completed matches will be kept for session history.';
+    }
+
+    if (!window.confirm(message)) return;
+
+    state.sessionMemberIds = getSessionMemberIds().filter(memberIdValue => memberIdValue !== id);
+    member.present = false;
+
+    // Preserve completed matches as historical results; remove active/future
+    // matches that can no longer be played with this participant.
+    state.matches = state.matches.filter(match =>
+      !match.players.includes(id) || match.completed
+    );
+
+    saveState(`${member.name} removed from this session.`);
+    renderAll();
+  }
+
+  function renderSessionParticipants() {
+    const menList = $('#session-men-list');
+    const womenList = $('#session-women-list');
+    if (!menList || !womenList) return;
+
+    const participants = getSessionMembers();
+    const participantIds = new Set(participants.map(member => member.id));
+
+    const menQuery = ($('#session-men-search')?.value || '').trim().toLowerCase();
+    const womenQuery = ($('#session-women-search')?.value || '').trim().toLowerCase();
+
+    const matchesQuery = (member, query) => {
+      if (!query) return true;
+
+      return (
+        member.name.toLowerCase().includes(query) ||
+        member.tier.toLowerCase().includes(query) ||
+        membershipLabel(member).toLowerCase().includes(query)
+      );
+    };
+
+    const renderGroup = (gender, container, query, countElementId) => {
+      const group = participants
+        .filter(member => member.gender === gender)
+        .sort((a, b) =>
+          a.memberType.localeCompare(b.memberType) ||
+          a.name.localeCompare(b.name)
+        );
+
+      const filtered = group.filter(member => matchesQuery(member, query));
+      const countEl = $(countElementId);
+
+      if (countEl) {
+        countEl.textContent = query
+          ? `${filtered.length} of ${group.length}`
+          : `${group.length} participants`;
+      }
+
+      container.innerHTML = filtered.length
+        ? filtered.map(member => `
+            <div class="session-member-row" data-session-member="${member.id}">
+              <span class="session-member-name pill ${tierClass[member.tier] || 'tier-q'}">
+                ${esc(member.name)}
+              </span>
+              <span class="session-member-tier">${esc(member.tier)}</span>
+              <span class="session-member-type ${member.memberType === 'non-member' ? 'nonmember' : 'regular'}">
+                ${membershipLabel(member)}
+              </span>
+              <button
+                class="session-member-remove"
+                data-id="${member.id}"
+                type="button"
+                title="Remove ${esc(member.name)} from this session"
+              >Remove</button>
+            </div>
+          `).join('')
+        : `<div class="session-member-empty">${query ? 'No matching participants.' : 'No participants in this group.'}</div>`;
+    };
+
+    renderGroup('Man', menList, menQuery, '#session-men-count');
+    renderGroup('Woman', womenList, womenQuery, '#session-women-count');
+
+    const regular = participants.filter(member => member.memberType === 'regular').length;
+    const nonMembers = participants.length - regular;
+    const summary = $('#session-participant-summary');
+
+    if (summary) {
+      summary.innerHTML = `
+        <span><strong>${participants.length}</strong> participants</span>
+        <span><strong>${regular}</strong> regular</span>
+        <span><strong>${nonMembers}</strong> non-member</span>
+      `;
+    }
+
+    const populateAddSelect = (selector, gender) => {
+      const select = $(selector);
+      if (!select) return;
+
+      const available = state.members
+        .filter(member =>
+          member.gender === gender &&
+          !participantIds.has(member.id)
+        )
+        .sort((a, b) =>
+          a.memberType.localeCompare(b.memberType) ||
+          a.name.localeCompare(b.name)
+        );
+
+      select.innerHTML = available.length
+        ? `<option value="">Select member…</option>` + available.map(member => `
+            <option value="${member.id}">
+              ${esc(member.name)} · ${esc(member.tier)} · ${membershipLabel(member)}
+            </option>
+          `).join('')
+        : '<option value="">Everyone is already added</option>';
+    };
+
+    populateAddSelect('#session-add-man-select', 'Man');
+    populateAddSelect('#session-add-woman-select', 'Woman');
+
+    $$('.session-member-remove').forEach(button => {
+      button.addEventListener('click', event => {
+        removeSessionMember(event.currentTarget.dataset.id);
+      });
+    });
+  }
+
+  function playerOptionMembers(selected) {
+    const participants = getSessionMembers();
+    const selectedMember = memberById(selected);
+
+    if (
+      selectedMember &&
+      !participants.some(member => member.id === selectedMember.id)
+    ) {
+      return [...participants, selectedMember];
+    }
+
+    return participants;
+  }
+
   function playerOptions(selected) {
-    return state.members.map(m =>
-      `<option value="${m.id}" ${m.id === selected ? 'selected' : ''}>${esc(m.name)} (${esc(m.tier)})</option>`
+    return playerOptionMembers(selected).map(m =>
+      `<option value="${m.id}" ${m.id === Number(selected) ? 'selected' : ''}>${esc(m.name)} (${esc(m.tier)})</option>`
     ).join('');
   }
 
   function playerNameOptions(selected) {
-    return state.members.map(m =>
-      `<option value="${m.id}" ${m.id === selected ? 'selected' : ''}>${esc(m.name)}</option>`
+    return playerOptionMembers(selected).map(m =>
+      `<option value="${m.id}" ${m.id === Number(selected) ? 'selected' : ''}>${esc(m.name)}</option>`
     ).join('');
   }
 
@@ -1060,7 +1326,7 @@
         `;
       }).join('');
 
-    const playerRows = [...state.members]
+    const playerRows = [...getSessionMembers()]
       .sort((a, b) =>
         (playedCounts.get(a.id) || 0) - (playedCounts.get(b.id) || 0) ||
         a.name.localeCompare(b.name)
@@ -1171,7 +1437,7 @@
     const played = getPlayedCountMap();
     const scheduled = getScheduledCountMap();
 
-    const rows = state.members
+    const rows = getSessionMembers()
       .map(member => ({
         ...member,
         playedCount: played.get(member.id) || 0,
@@ -1359,15 +1625,16 @@
   }
 
   function renderSession() {
+    const participants = getSessionMembers();
     const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
-    const slots = state.matches.length * 4;
-    const avg = state.members.length ? slots / state.members.length : 0;
+    const regular = participants.filter(member => member.memberType === 'regular').length;
+    const nonMembers = participants.length - regular;
 
     const cards = [
-      ['Members', state.members.length],
-      ['Rotations', rounds],
-      ['Planned matches', state.matches.length || rounds * state.courts],
-      ['Avg. matches/player', avg ? avg.toFixed(1) : '—']
+      ['Participants', participants.length],
+      ['Regular / Non-member', `${regular} / ${nonMembers}`],
+      ['Rotations / Courts', `${rounds} / ${state.courts}`],
+      ['Planned matches', state.matches.length || rounds * state.courts]
     ];
 
     $('#session-summary').innerHTML = cards.map(([label,value]) => `
@@ -1376,6 +1643,8 @@
         <div class="value">${value}</div>
       </div>
     `).join('');
+
+    renderSessionParticipants();
   }
 
   function renderAttendance() {
@@ -1393,7 +1662,7 @@
     const scheduledCounts = getScheduledCountMap();
     const playingIds = getPlayingPlayerIds();
 
-    attendanceList.innerHTML = [...state.members]
+    attendanceList.innerHTML = [...getSessionMembers()]
       .sort((a, b) =>
         (playedCounts.get(a.id) || 0) - (playedCounts.get(b.id) || 0) ||
         a.name.localeCompare(b.name)
@@ -1663,13 +1932,19 @@
   function historyRecordStats(record) {
     const matches = record.state.matches || [];
     const members = record.state.members || [];
+    const validIds = new Set(members.map(member => Number(member.id)));
+    const participantIds = Array.isArray(record.state.sessionMemberIds)
+      ? record.state.sessionMemberIds.map(Number).filter(id => validIds.has(id))
+      : members.map(member => Number(member.id));
+    const participantIdSet = new Set(participantIds);
+    const participants = members.filter(member => participantIdSet.has(Number(member.id)));
 
     return {
-      players: members.length,
+      players: participants.length,
       matches: matches.length,
       completed: matches.filter(match => match.completed).length,
       confirmed: matches.filter(match => match.confirmed).length,
-      present: members.filter(member => member.present).length
+      present: participants.filter(member => member.present).length
     };
   }
 
@@ -1721,11 +1996,26 @@
 
     list.innerHTML = records.map(record => {
       const stats = historyRecordStats(record);
-      const playerCounts = new Map(record.state.members.map(member => [member.id, 0]));
+      const historyMembers = record.state.members || [];
+      const historyValidIds = new Set(historyMembers.map(member => Number(member.id)));
+      const historyParticipantIds = Array.isArray(record.state.sessionMemberIds)
+        ? record.state.sessionMemberIds.map(Number).filter(id => historyValidIds.has(id))
+        : historyMembers.map(member => Number(member.id));
+      const historyParticipantSet = new Set(historyParticipantIds);
+      const historyParticipants = historyMembers.filter(member =>
+        historyParticipantSet.has(Number(member.id))
+      );
+
+      const playerCounts = new Map(historyParticipants.map(member => [Number(member.id), 0]));
       record.state.matches.forEach(match => match.players.forEach(id => {
-        if (playerCounts.has(id)) playerCounts.set(id, playerCounts.get(id) + 1);
+        const numericId = Number(id);
+        if (playerCounts.has(numericId)) {
+          playerCounts.set(numericId, playerCounts.get(numericId) + 1);
+        }
       }));
-      const countText = record.state.members.map(member => `${esc(member.name)} ${playerCounts.get(member.id) || 0}`).join(' · ');
+      const countText = historyParticipants
+        .map(member => `${esc(member.name)} ${playerCounts.get(Number(member.id)) || 0}`)
+        .join(' · ');
       return `
         <article class="history-card" data-history-id="${esc(record.id)}">
           <div class="history-card-main">
@@ -1813,6 +2103,71 @@
 
   $('#men-member-search').addEventListener('input', renderMembers);
   $('#women-member-search').addEventListener('input', renderMembers);
+
+  $('#session-men-search').addEventListener('input', renderSessionParticipants);
+  $('#session-women-search').addEventListener('input', renderSessionParticipants);
+
+  $('#session-add-man-btn').addEventListener('click', () => {
+    const id = $('#session-add-man-select').value;
+    if (!id) {
+      setStatus('Choose a man from the member directory first.');
+      return;
+    }
+    addSessionMember(id);
+  });
+
+  $('#session-add-woman-btn').addEventListener('click', () => {
+    const id = $('#session-add-woman-select').value;
+    if (!id) {
+      setStatus('Choose a woman from the member directory first.');
+      return;
+    }
+    addSessionMember(id);
+  });
+
+  $('#session-add-all-regular').addEventListener('click', () => {
+    const ids = new Set(getSessionMemberIds());
+    let added = 0;
+
+    state.members.forEach(member => {
+      if (member.memberType === 'regular' && !ids.has(member.id)) {
+        ids.add(member.id);
+        member.present = false;
+        added += 1;
+      }
+    });
+
+    state.sessionMemberIds = [...ids];
+    saveState(`${added} regular member${added === 1 ? '' : 's'} added to this session.`);
+    renderAll();
+  });
+
+  $('#session-clear-participants').addEventListener('click', () => {
+    const participants = getSessionMembers();
+    if (!participants.length) {
+      setStatus('This session already has no participants.');
+      return;
+    }
+
+    const hasPlaying = state.matches.some(match => match.playing && !match.completed);
+    const confirmed = window.confirm(
+      hasPlaying
+        ? 'Clear all session participants? Playing and uncompleted matches will be removed. Completed matches will be kept.'
+        : 'Clear all participants from this session? Uncompleted matches will be removed. Completed matches will be kept.'
+    );
+
+    if (!confirmed) return;
+
+    participants.forEach(member => {
+      member.present = false;
+    });
+
+    state.sessionMemberIds = [];
+    state.matches = state.matches.filter(match => match.completed);
+
+    saveState('All participants removed from the current session.');
+    renderAll();
+  });
 
   $('#cloud-signin').addEventListener('click', async () => {
     const email = $('#cloud-email').value.trim();
@@ -1939,7 +2294,7 @@
   $('#clear-attendance').addEventListener('click', () => {
     const playingIds = getPlayingPlayerIds();
 
-    state.members.forEach(member => {
+    getSessionMembers().forEach(member => {
       if (!playingIds.has(member.id)) {
         member.present = false;
       }
@@ -1954,7 +2309,7 @@
   });
 
   $('#all-present').addEventListener('click', () => {
-    state.members.forEach(m => m.present = true);
+    getSessionMembers().forEach(m => m.present = true);
     saveState('Attendance saved.');
     renderAll();
   });

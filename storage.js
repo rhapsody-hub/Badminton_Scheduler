@@ -26,6 +26,7 @@
             name: String(m.name || 'Unnamed'),
             gender: m.gender === 'Woman' ? 'Woman' : 'Man',
             tier: ['A+','A','B+','B','C','D','?'].includes(m.tier) ? m.tier : '?',
+            memberType: m.memberType === 'non-member' ? 'non-member' : 'regular',
             present: Boolean(m.present)
           }))
       : [];
@@ -62,6 +63,9 @@
     return {
       members,
       matches,
+      sessionMemberIds: Array.isArray(raw.sessionMemberIds)
+        ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+        : members.map(member => member.id),
       sessionName: String(raw.sessionName || '').slice(0, 80),
       courts: Math.max(1, Math.min(12, Number(raw.courts) || 3)),
       duration: Math.max(30, Math.min(720, Number(raw.duration) || 180)),

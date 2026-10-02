@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=10" />
+  <link rel="stylesheet" href="styles.css?refresh=11" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -56,7 +56,7 @@
       <div class="section-head">
         <div>
           <h2>Members</h2>
-          <p>Compact member management. Search by name or tier; changes save automatically.</p>
+          <p>Master member directory. Manage gender, skill tier, and Regular / Non-member status here.</p>
         </div>
         <div id="member-total" class="member-total-badge"></div>
       </div>
@@ -138,6 +138,69 @@
               <option value="more-mixed">More mixed doubles</option>
             </select>
           </label>
+        </div>
+
+        <div class="session-participants-panel">
+          <div class="session-participants-head">
+            <div>
+              <h3>Session Participants</h3>
+              <p>Choose who is playing in this session. Match generation and attendance use only these participants.</p>
+            </div>
+            <div class="session-participant-actions">
+              <button id="session-add-all-regular" class="btn" type="button">Add all regular</button>
+              <button id="session-clear-participants" class="btn danger" type="button">Clear participants</button>
+            </div>
+          </div>
+
+          <div id="session-participant-summary" class="session-participant-summary"></div>
+
+          <div class="session-member-groups">
+            <section class="session-member-group">
+              <div class="session-member-group-head">
+                <div>
+                  <strong>Men</strong>
+                  <span id="session-men-count"></span>
+                </div>
+                <div class="session-add-row">
+                  <select id="session-add-man-select" class="input"></select>
+                  <button id="session-add-man-btn" class="btn primary" type="button">Add</button>
+                </div>
+              </div>
+
+              <input
+                id="session-men-search"
+                class="input session-member-search"
+                type="search"
+                placeholder="Search session men..."
+                autocomplete="off"
+              />
+
+              <div id="session-men-list" class="session-member-list"></div>
+            </section>
+
+            <section class="session-member-group">
+              <div class="session-member-group-head">
+                <div>
+                  <strong>Women</strong>
+                  <span id="session-women-count"></span>
+                </div>
+                <div class="session-add-row">
+                  <select id="session-add-woman-select" class="input"></select>
+                  <button id="session-add-woman-btn" class="btn primary" type="button">Add</button>
+                </div>
+              </div>
+
+              <input
+                id="session-women-search"
+                class="input session-member-search"
+                type="search"
+                placeholder="Search session women..."
+                autocomplete="off"
+              />
+
+              <div id="session-women-list" class="session-member-list"></div>
+            </section>
+          </div>
         </div>
 
         <div class="actions">
@@ -265,9 +328,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=11" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=11" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=11" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=11" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>
