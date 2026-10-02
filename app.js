@@ -965,7 +965,7 @@
               ${esc(member.name)} · ${esc(member.tier)} · ${membershipLabel(member)}
             </option>
           `).join('')
-        : '<option value="">Everyone is already added</option>';
+        : '<option value="">All members already added</option>';
     };
 
     populateAddSelect('#session-add-man-select', 'Man');
@@ -2106,6 +2106,16 @@
 
   $('#session-men-search').addEventListener('input', renderSessionParticipants);
   $('#session-women-search').addEventListener('input', renderSessionParticipants);
+
+  $('#toggle-session-participants').addEventListener('click', () => {
+    const body = $('#session-participants-body');
+    const button = $('#toggle-session-participants');
+    if (!body || !button) return;
+
+    const collapsed = body.classList.toggle('collapsed');
+    button.textContent = collapsed ? 'Expand' : 'Collapse';
+    button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
 
   $('#session-add-man-btn').addEventListener('click', () => {
     const id = $('#session-add-man-select').value;

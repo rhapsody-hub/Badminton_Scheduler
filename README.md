@@ -427,3 +427,10 @@ When a participant is removed:
 Match generation, attendance, Available Matches, player swapping, player counts, and Excel export now use only the current session's participant list.
 
 No Supabase migration is needed. `memberType` and `sessionMemberIds` are stored inside the existing shared JSON workspace state.
+
+
+## Session participant UI refinement
+
+The Session Participants panel now has a **Collapse / Expand** button.
+
+The Men and Women add-member dropdowns use the full group width so names and status text are easier to read.

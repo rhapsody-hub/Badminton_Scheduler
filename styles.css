@@ -2339,3 +2339,54 @@ label {
     align-items: stretch;
   }
 }
+
+
+/* Session participants collapse + readable add-member selects */
+.session-participants-body {
+  display: block;
+}
+
+.session-participants-body.collapsed {
+  display: none;
+}
+
+#toggle-session-participants {
+  min-width: 76px;
+}
+
+.session-member-group-head {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.session-member-group-head > div:first-child {
+  width: 100%;
+}
+
+.session-add-row {
+  width: 100%;
+}
+
+.session-add-row .input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  font-size: 0.7rem;
+  padding-right: 28px;
+}
+
+.session-add-row .btn {
+  flex: 0 0 auto;
+  min-width: 48px;
+}
+
+@media (max-width: 720px) {
+  .session-participant-actions {
+    width: 100%;
+  }
+
+  .session-participant-actions .btn {
+    flex: 1 1 auto;
+  }
+}
