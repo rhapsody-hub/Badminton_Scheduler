@@ -3117,3 +3117,47 @@ label {
     flex-direction: column;
   }
 }
+
+
+/* =========================================================
+   Advanced Settings input/select text readability fix
+   ========================================================= */
+
+/*
+  .input normally has vertical padding. Combined with the previous fixed
+  36px height, Edge could clip native select text. Use horizontal-only
+  padding in this compact row and provide enough control height.
+*/
+.session-advanced-grid .input {
+  height: 40px;
+  min-height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+/* Match Mix dropdown */
+#mix {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 34px 0 11px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#mix option {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Keep numeric fields aligned with the dropdown. */
+.session-advanced-grid input[type="number"].input {
+  padding-left: 11px;
+  padding-right: 42px;
+  font-size: 14px;
+  font-weight: 700;
+}

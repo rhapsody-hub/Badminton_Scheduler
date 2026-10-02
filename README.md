@@ -525,3 +525,15 @@ Duration, rotation length, and match mix are now inside a collapsed **Advanced s
 The primary action is **Generate / Reshuffle matches**, followed by Save Session. Reset actions are visually secondary.
 
 The previous session summary-card row was removed to reduce visual clutter.
+
+
+## Advanced Settings dropdown readability fix
+
+The Match Mix dropdown and the other Advanced Settings inputs now use:
+
+- 40px control height
+- horizontal-only internal padding
+- explicit 14px text
+- corrected line height
+
+This prevents native select text from being vertically clipped in Microsoft Edge and similar browsers.
