@@ -546,3 +546,19 @@ Session creation now includes a **Session date** field.
 The selected date is saved with the current session, synchronized through the shared workspace, included in saved Session History, restored with old sessions, and included in Excel exports.
 
 New sessions default to the device's current local date.
+
+
+## Participants and group-specific membership status
+
+The **Members** page has been renamed **Participants**.
+
+Regular / Non-member is no longer stored as an overall participant status in the UI. It is assigned independently inside each Group.
+
+A participant can therefore be:
+
+- Regular in Group A
+- Non-member in Group B
+
+When a Group is imported into a Session, its group-specific Regular / Non-member status is copied into the Session. If the same participant was already imported from another Group, the first imported status remains because duplicate participants are ignored.
+
+Existing saved data is migrated automatically. Older global Regular / Non-member values are used as the initial status for existing Group memberships so current data is not lost.

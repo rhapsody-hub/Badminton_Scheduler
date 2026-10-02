@@ -3198,3 +3198,53 @@ label {
     grid-column: auto;
   }
 }
+
+
+/* Participants page: global Regular/Non-member choice removed. */
+.participant-compact-row {
+  grid-template-columns: minmax(0, 1fr) 58px 76px 30px !important;
+  min-height: 42px !important;
+  align-items: center !important;
+}
+
+/* Regular / Non-member now belongs to each Group membership. */
+.group-member-row.group-member-row-with-status {
+  grid-template-columns: 22px minmax(0, 1fr) 70px 112px;
+}
+
+.group-member-type {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid #d5dce5;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 6px;
+  font-size: 0.62rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.group-member-type:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .participant-compact-row {
+    grid-template-columns: minmax(0, 1fr) 54px 30px !important;
+  }
+
+  .participant-compact-row .member-gender-move {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .group-member-row.group-member-row-with-status {
+    grid-template-columns: 22px minmax(0, 1fr) 68px;
+  }
+
+  .group-member-row.group-member-row-with-status .group-member-type {
+    grid-column: 2 / -1;
+  }
+}

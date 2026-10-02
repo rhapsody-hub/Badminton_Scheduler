@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=18" />
+  <link rel="stylesheet" href="styles.css?refresh=19" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -19,7 +19,7 @@
     </header>
 
     <nav class="tabs" role="tablist" aria-label="Badminton manager sections">
-      <a class="tab active" href="#members" data-tab="members" aria-selected="true">Members</a>
+      <a class="tab active" href="#participants" data-tab="participants" aria-selected="true">Participants</a>
       <a class="tab" href="#groups" data-tab="groups" aria-selected="false">Groups</a>
       <a class="tab" href="#session" data-tab="session" aria-selected="false">Session</a>
       <a class="tab" href="#matches" data-tab="matches" aria-selected="false">Matches</a>
@@ -53,11 +53,11 @@
       </div>
     </section>
 
-    <section id="members" data-panel="members">
+    <section id="participants" data-panel="participants">
       <div class="section-head">
         <div>
-          <h2>Members</h2>
-          <p>Manage the master player directory. Group assignments are managed separately in Groups.</p>
+          <h2>Participants</h2>
+          <p>Master participant directory. Regular / Non-member status is managed inside each Group.</p>
         </div>
         <div id="member-total" class="member-total-badge"></div>
       </div>
@@ -459,9 +459,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=18" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=18" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=18" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=18" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=19" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=19" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=19" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=19" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

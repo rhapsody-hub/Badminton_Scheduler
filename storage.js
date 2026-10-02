@@ -68,7 +68,29 @@
             name: String(group.name || 'Unnamed Group').slice(0, 60),
             memberIds: Array.isArray(group.memberIds)
               ? [...new Set(group.memberIds.map(Number).filter(id => validMemberIds.has(id)))]
-              : []
+              : [],
+            memberTypes: (() => {
+              const source = group.memberTypes && typeof group.memberTypes === 'object'
+                ? group.memberTypes
+                : {};
+              const result = {};
+
+              (Array.isArray(group.memberIds) ? group.memberIds : [])
+                .map(Number)
+                .filter(id => validMemberIds.has(id))
+                .forEach(id => {
+                  const participant = members.find(item => item.id === id);
+                  const legacyType = participant?.memberType === 'non-member'
+                    ? 'non-member'
+                    : 'regular';
+
+                  result[id] = source[id] === 'non-member'
+                    ? 'non-member'
+                    : (source[id] === 'regular' ? 'regular' : legacyType);
+                });
+
+              return result;
+            })()
           }))
       : [];
 
@@ -79,6 +101,29 @@
       sessionMemberIds: Array.isArray(raw.sessionMemberIds)
         ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
         : members.map(member => member.id),
+      sessionParticipantTypes: (() => {
+        const source = raw.sessionParticipantTypes && typeof raw.sessionParticipantTypes === 'object'
+          ? raw.sessionParticipantTypes
+          : {};
+        const result = {};
+
+        const ids = Array.isArray(raw.sessionMemberIds)
+          ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+          : members.map(member => member.id);
+
+        ids.forEach(id => {
+          const participant = members.find(item => item.id === id);
+          const legacyType = participant?.memberType === 'non-member'
+            ? 'non-member'
+            : 'regular';
+
+          result[id] = source[id] === 'non-member'
+            ? 'non-member'
+            : (source[id] === 'regular' ? 'regular' : legacyType);
+        });
+
+        return result;
+      })(),
       sessionName: String(raw.sessionName || '').slice(0, 80),
       sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(String(raw.sessionDate || ''))
         ? String(raw.sessionDate)
