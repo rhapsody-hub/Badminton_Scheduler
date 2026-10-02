@@ -914,6 +914,36 @@
 
     normalizeRuntimeMembership();
 
+    const updateGroupSummaryUi = (group) => {
+      const groupTotal = $('#group-total');
+
+      if (groupTotal) {
+        const memberships = state.groups.reduce(
+          (sum, item) => sum + item.memberIds.length,
+          0
+        );
+
+        groupTotal.textContent =
+          `${state.groups.length} group${state.groups.length === 1 ? '' : 's'} · ${memberships} assignments`;
+      }
+
+      const selectedCount = $('#selected-group-member-count');
+      if (selectedCount && group) {
+        selectedCount.textContent =
+          `${group.memberIds.length} member${group.memberIds.length === 1 ? '' : 's'}`;
+      }
+
+      if (group) {
+        const groupListCount = document.querySelector(
+          `.group-list-item[data-group-id="${CSS.escape(group.id)}"] .group-list-count`
+        );
+
+        if (groupListCount) {
+          groupListCount.textContent = group.memberIds.length;
+        }
+      }
+    };
+
     const groupTotal = $('#group-total');
     if (groupTotal) {
       const memberships = state.groups.reduce(
@@ -952,24 +982,15 @@
           type="button"
         >
           <span>${esc(group.name)}</span>
-          <strong>${group.memberIds.length}</strong>
+          <strong class="group-list-count">${group.memberIds.length}</strong>
         </button>
       `).join('');
 
     const group = groupById(selectedGroupId);
     if (!group) return;
 
-    const query = ($('#group-member-search')?.value || '').trim().toLowerCase();
-
     const rows = state.members
-      .filter(member => {
-        if (!query) return true;
-        return (
-          member.name.toLowerCase().includes(query) ||
-          member.tier.toLowerCase().includes(query) ||
-          membershipLabel(member).toLowerCase().includes(query)
-        );
-      })
+      .slice()
       .sort((a, b) =>
         Number(group.memberIds.includes(b.id)) - Number(group.memberIds.includes(a.id)) ||
         a.gender.localeCompare(b.gender) ||
@@ -986,7 +1007,9 @@
             maxlength="60"
             aria-label="Group name"
           />
-          <span>${group.memberIds.length} members</span>
+          <span id="selected-group-member-count">
+            ${group.memberIds.length} member${group.memberIds.length === 1 ? '' : 's'}
+          </span>
         </div>
         <button
           id="delete-selected-group"
@@ -999,14 +1022,23 @@
         id="group-member-search"
         class="input group-member-search"
         type="search"
-        value="${esc(query)}"
         placeholder="Search members to add/remove..."
         autocomplete="off"
       />
 
+      <div id="group-member-no-results" class="group-member-no-results" hidden>
+        No matching members.
+      </div>
+
       <div class="group-member-list">
         ${rows.map(member => `
-          <label class="group-member-row">
+          <label
+            class="group-member-row"
+            data-group-search="${esc(
+              `${member.name} ${member.tier} ${membershipLabel(member)} ${member.gender}`
+                .toLowerCase()
+            )}"
+          >
             <input
               class="group-member-toggle"
               data-member-id="${member.id}"
@@ -1045,19 +1077,50 @@
       deleteGroup(group.id);
     });
 
-    $('#group-member-search')?.addEventListener('input', renderGroupManager);
+    // IMPORTANT:
+    // Filter existing DOM rows instead of re-rendering the entire editor.
+    // This preserves keyboard focus and the cursor position while typing.
+    $('#group-member-search')?.addEventListener('input', event => {
+      const query = event.currentTarget.value.trim().toLowerCase();
+      let visibleCount = 0;
 
+      $$('.group-member-row').forEach(row => {
+        const searchable = row.dataset.groupSearch || '';
+        const visible = !query || searchable.includes(query);
+
+        row.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+
+      const noResults = $('#group-member-no-results');
+      if (noResults) {
+        noResults.hidden = visibleCount !== 0;
+      }
+    });
+
+    // IMPORTANT:
+    // Do not renderAll() here. Re-rendering after every checkbox change
+    // destroyed/recreated the checkbox list, causing rows to move and making
+    // rapid selections unreliable. Update state and only the small counters.
     $$('.group-member-toggle').forEach(input => {
       input.addEventListener('change', event => {
-        const memberId = Number(event.target.dataset.memberId);
+        const memberId = Number(event.currentTarget.dataset.memberId);
         const ids = new Set(group.memberIds);
 
-        if (event.target.checked) ids.add(memberId);
-        else ids.delete(memberId);
+        if (event.currentTarget.checked) {
+          ids.add(memberId);
+        } else {
+          ids.delete(memberId);
+        }
 
         group.memberIds = [...ids];
+
         saveState('Group membership saved.');
-        renderAll();
+        updateGroupSummaryUi(group);
+
+        // Keep the Session group's import count fresh without touching
+        // the active Groups editor DOM.
+        renderSessionParticipants();
       });
     });
   }

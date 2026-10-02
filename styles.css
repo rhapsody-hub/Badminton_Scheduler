@@ -2867,3 +2867,36 @@ label {
     width: 100%;
   }
 }
+
+
+/* =========================================================
+   Group editor interaction fixes
+   ========================================================= */
+
+.group-member-row[hidden] {
+  display: none !important;
+}
+
+.group-member-no-results {
+  margin: 8px 0;
+  padding: 14px 10px;
+  border: 1px dashed #d7dde5;
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.68rem;
+  background: #fafbfc;
+}
+
+.group-member-row input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.group-member-row {
+  user-select: none;
+}
+
+.group-member-row .pill,
+.group-member-row > span {
+  pointer-events: none;
+}

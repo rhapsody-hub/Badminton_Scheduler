@@ -491,3 +491,13 @@ The Groups page contains all reusable group management:
 - The same member can belong to multiple groups
 
 The Session page continues to import participants from these reusable groups.
+
+
+## Group editor interaction fix
+
+Two Group-page interaction issues were corrected:
+
+1. Member search now filters the existing list in place instead of rebuilding the whole Group editor on every keystroke. The search field therefore keeps focus and the cursor no longer disappears.
+2. Group membership checkboxes no longer trigger a full application re-render. This keeps checkbox positions stable while selecting several members and prevents missed / unreliable clicks.
+
+Membership changes are still saved immediately and synchronized to the shared workspace.
