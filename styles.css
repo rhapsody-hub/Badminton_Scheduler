@@ -2832,3 +2832,38 @@ label {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+/* =========================================================
+   Separate Members / Groups pages
+   ========================================================= */
+
+.standalone-group-manager {
+  margin-top: 0;
+}
+
+#groups .member-group-manager {
+  min-height: 360px;
+}
+
+/* Members are intentionally flatter now that group chips live elsewhere. */
+.member-compact-row.member-compact-row-with-type {
+  grid-template-columns: minmax(0, 1fr) 56px 92px 76px 30px;
+  align-items: center;
+  min-height: 42px;
+}
+
+.member-compact-row.member-compact-row-with-type .member-compact-name {
+  height: 30px;
+}
+
+@media (max-width: 720px) {
+  .member-compact-row.member-compact-row-with-type {
+    grid-template-columns: minmax(0, 1fr) 54px 88px 30px;
+  }
+
+  .member-compact-row.member-compact-row-with-type .member-gender-move {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}

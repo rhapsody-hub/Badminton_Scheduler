@@ -713,15 +713,11 @@
       if (!query) return true;
 
       const typeText = membershipLabel(member).toLowerCase();
-      const groupText = memberGroups(member.id)
-        .map(group => group.name.toLowerCase())
-        .join(' ');
 
       return (
         member.name.toLowerCase().includes(query) ||
         member.tier.toLowerCase().includes(query) ||
-        typeText.includes(query) ||
-        groupText.includes(query)
+        typeText.includes(query)
       );
     };
 
@@ -739,23 +735,14 @@
         ? filtered.map(member => {
             const moveLabel = gender === 'Man' ? '→ Women' : '→ Men';
             const targetGender = gender === 'Man' ? 'Woman' : 'Man';
-            const groups = memberGroups(member.id);
-
             return `
               <div class="member-compact-row member-compact-row-with-type" data-member="${member.id}">
-                <div class="member-name-groups">
-                  <input
-                    class="member-compact-name"
-                    value="${esc(member.name)}"
-                    aria-label="Member name"
-                    title="${esc(member.name)}"
-                  />
-                  <div class="member-group-chips">
-                    ${groups.length
-                      ? groups.map(group => `<span>${esc(group.name)}</span>`).join('')
-                      : '<span class="none">No group</span>'}
-                  </div>
-                </div>
+                <input
+                  class="member-compact-name"
+                  value="${esc(member.name)}"
+                  aria-label="Member name"
+                  title="${esc(member.name)}"
+                />
 
                 <select
                   class="member-compact-tier ${tierClass[member.tier] || 'tier-q'}"
@@ -883,7 +870,6 @@
       });
     });
 
-    renderGroupManager();
   }
 
   function addMemberForGender(gender) {
@@ -927,6 +913,16 @@
     if (!list || !editor || !note) return;
 
     normalizeRuntimeMembership();
+
+    const groupTotal = $('#group-total');
+    if (groupTotal) {
+      const memberships = state.groups.reduce(
+        (sum, group) => sum + group.memberIds.length,
+        0
+      );
+      groupTotal.textContent =
+        `${state.groups.length} group${state.groups.length === 1 ? '' : 's'} · ${memberships} assignments`;
+    }
 
     if (!state.groups.length) {
       selectedGroupId = null;
@@ -2318,6 +2314,7 @@
 
   function renderAll() {
     renderMembers();
+    renderGroupManager();
     renderSession();
     renderPlayerMatchCounts();
     renderMatches();
@@ -2326,7 +2323,7 @@
   }
 
   function showPanel(panelName, updateHash = false) {
-    const validPanels = ['members', 'session', 'matches', 'history'];
+    const validPanels = ['members', 'groups', 'session', 'matches', 'history'];
     const target = validPanels.includes(panelName) ? panelName : 'members';
 
     $$('.tab').forEach(tab => {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=13" />
+  <link rel="stylesheet" href="styles.css?refresh=14" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -20,6 +20,7 @@
 
     <nav class="tabs" role="tablist" aria-label="Badminton manager sections">
       <a class="tab active" href="#members" data-tab="members" aria-selected="true">Members</a>
+      <a class="tab" href="#groups" data-tab="groups" aria-selected="false">Groups</a>
       <a class="tab" href="#session" data-tab="session" aria-selected="false">Session</a>
       <a class="tab" href="#matches" data-tab="matches" aria-selected="false">Matches</a>
       
@@ -56,7 +57,7 @@
       <div class="section-head">
         <div>
           <h2>Members</h2>
-          <p>Master member directory. Manage gender, skill tier, and Regular / Non-member status here.</p>
+          <p>Manage the master player directory. Group assignments are managed separately in Groups.</p>
         </div>
         <div id="member-total" class="member-total-badge"></div>
       </div>
@@ -109,12 +110,24 @@
         </section>
       </div>
 
-      <section class="member-group-manager">
+    </section>
+
+    <section id="groups" data-panel="groups" hidden>
+      <div class="section-head">
+        <div>
+          <h2>Groups</h2>
+          <p>Create reusable player groups. The same member can belong to multiple groups.</p>
+        </div>
+        <div id="group-total" class="member-total-badge"></div>
+      </div>
+
+      <section class="member-group-manager standalone-group-manager">
         <div class="member-group-manager-head">
           <div>
-            <h3>Groups</h3>
-            <p>Create reusable groups. A member can belong to more than one group.</p>
+            <h3>Group Management</h3>
+            <p>Select a group, then tick the members who belong to it.</p>
           </div>
+
           <div class="group-create-row">
             <input
               id="new-group-name"
@@ -133,7 +146,9 @@
           <div id="group-list" class="group-list"></div>
 
           <div id="group-editor" class="group-editor">
-            <div class="group-editor-empty">Create or select a group to manage its members.</div>
+            <div class="group-editor-empty">
+              Create or select a group to manage its members.
+            </div>
           </div>
         </div>
       </section>
@@ -384,9 +399,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=14" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=14" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=14" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=14" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

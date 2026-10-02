@@ -462,3 +462,32 @@ The Session page is now:
 6. Generate matches.
 
 Participants remain separated into Men and Women when the participant list is expanded.
+
+
+## Separate Members and Groups pages
+
+The navigation now has separate **Members** and **Groups** tabs.
+
+### Members
+The Members page is intentionally compact and only handles:
+
+- Name
+- Gender
+- Skill tier
+- Regular / Non-member status
+- Add/remove members
+- Search Men and Women separately
+
+Group chips and group editing have been removed from the Members page.
+
+### Groups
+The Groups page contains all reusable group management:
+
+- Create groups
+- Rename groups
+- Delete groups
+- Search the member directory
+- Add/remove members from each group
+- The same member can belong to multiple groups
+
+The Session page continues to import participants from these reusable groups.
