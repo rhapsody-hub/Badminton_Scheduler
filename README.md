@@ -376,3 +376,19 @@ Attendance has been moved into the Matches page. The separate Attendance & Live 
 ### Shared cloud behavior
 
 All Playing status, start/completion state, court assignments, player swaps, attendance changes, and Played counts are part of the same shared workspace state and therefore sync through Supabase like the rest of the session.
+
+
+## Compact member management
+
+The Members page is now split into compact **Men** and **Women** lists.
+
+Each list has its own search field. Search matches either member name or skill tier.
+
+Each row now contains only:
+
+- Name
+- Skill tier
+- Move to the other gender list
+- Remove
+
+Each group also has its own **+ Add** button.

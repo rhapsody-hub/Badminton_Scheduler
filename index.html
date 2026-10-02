@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=9" />
+  <link rel="stylesheet" href="styles.css?refresh=10" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -56,11 +56,58 @@
       <div class="section-head">
         <div>
           <h2>Members</h2>
-          <p>Add or edit names, gender, and skill tier. Changes are saved automatically.</p>
+          <p>Compact member management. Search by name or tier; changes save automatically.</p>
         </div>
-        <button id="add-member" class="btn primary" type="button">+ Add member</button>
+        <div id="member-total" class="member-total-badge"></div>
       </div>
-      <div id="member-list" class="stack"></div>
+
+      <div class="member-groups">
+        <section class="member-group-card">
+          <div class="member-group-head">
+            <div>
+              <h3>Men</h3>
+              <span id="men-member-count" class="member-group-count"></span>
+            </div>
+            <button id="add-man" class="btn primary member-add-btn" type="button">+ Add</button>
+          </div>
+
+          <div class="member-search-wrap">
+            <span class="member-search-icon" aria-hidden="true">⌕</span>
+            <input
+              id="men-member-search"
+              class="input member-search"
+              type="search"
+              placeholder="Search men by name or tier..."
+              autocomplete="off"
+            />
+          </div>
+
+          <div id="men-member-list" class="member-compact-list"></div>
+        </section>
+
+        <section class="member-group-card">
+          <div class="member-group-head">
+            <div>
+              <h3>Women</h3>
+              <span id="women-member-count" class="member-group-count"></span>
+            </div>
+            <button id="add-woman" class="btn primary member-add-btn" type="button">+ Add</button>
+          </div>
+
+          <div class="member-search-wrap">
+            <span class="member-search-icon" aria-hidden="true">⌕</span>
+            <input
+              id="women-member-search"
+              class="input member-search"
+              type="search"
+              placeholder="Search women by name or tier..."
+              autocomplete="off"
+            />
+          </div>
+
+          <div id="women-member-list" class="member-compact-list"></div>
+        </section>
+      </div>
     </section>
 
     <section id="session" data-panel="session" hidden>
@@ -218,9 +265,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=9" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=9" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=9" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=9" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=10" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>
