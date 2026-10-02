@@ -434,3 +434,31 @@ No Supabase migration is needed. `memberType` and `sessionMemberIds` are stored 
 The Session Participants panel now has a **Collapse / Expand** button.
 
 The Men and Women add-member dropdowns use the full group width so names and status text are easier to read.
+
+
+## Reusable Groups
+
+The master member directory now supports reusable groups.
+
+- Create as many groups as needed.
+- A member can belong to multiple groups.
+- Group membership is independent of Regular / Non-member status.
+- Removing a group does not delete its members.
+- Removing a member from the directory removes that member from every group.
+
+Group data is stored inside the existing shared workspace JSON state, so no Supabase schema migration is required.
+
+## Simplified Session workflow
+
+New/reset sessions begin with an empty participant list.
+
+The Session page is now:
+
+1. Set session name, courts, duration, rotation, and match mix.
+2. Choose a group and press **Import group**.
+3. Import additional groups if required; duplicate members are ignored automatically.
+4. Optionally add an individual person.
+5. Expand the participant list only when you need to review or remove someone.
+6. Generate matches.
+
+Participants remain separated into Men and Women when the participant list is expanded.

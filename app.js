@@ -20,7 +20,8 @@
 
   const defaultState = () => ({
     members: defaultMembers.map(m => ({ ...m })),
-    sessionMemberIds: defaultMembers.map(m => m.id),
+    groups: [],
+    sessionMemberIds: [],
     matches: [],
     sessionName: '',
     courts: 3,
@@ -34,6 +35,7 @@
   let applyingRemoteState = false;
   let cloudSaveTimer = null;
   let historySource = 'local';
+  let selectedGroupId = null;
 
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => [...document.querySelectorAll(s)];
@@ -52,8 +54,22 @@
 
     const validIds = new Set(state.members.map(member => member.id));
 
+    if (!Array.isArray(state.groups)) {
+      state.groups = [];
+    }
+
+    state.groups = state.groups
+      .filter(group => group && group.id)
+      .map(group => ({
+        id: String(group.id),
+        name: String(group.name || 'Unnamed Group').slice(0, 60),
+        memberIds: Array.isArray(group.memberIds)
+          ? [...new Set(group.memberIds.map(Number).filter(id => validIds.has(id)))]
+          : []
+      }));
+
     if (!Array.isArray(state.sessionMemberIds)) {
-      state.sessionMemberIds = state.members.map(member => member.id);
+      state.sessionMemberIds = [];
     } else {
       state.sessionMemberIds = [
         ...new Set(
@@ -63,6 +79,93 @@
         )
       ];
     }
+
+    if (selectedGroupId && !state.groups.some(group => group.id === selectedGroupId)) {
+      selectedGroupId = state.groups[0]?.id || null;
+    }
+  }
+
+  function groupById(id) {
+    normalizeRuntimeMembership();
+    return state.groups.find(group => group.id === String(id));
+  }
+
+  function memberGroups(memberId) {
+    const id = Number(memberId);
+    normalizeRuntimeMembership();
+    return state.groups.filter(group => group.memberIds.includes(id));
+  }
+
+  function createGroup(name) {
+    const cleanName = String(name || '').trim().slice(0, 60);
+    if (!cleanName) {
+      setStatus('Enter a group name first.');
+      return;
+    }
+
+    const duplicate = state.groups.some(
+      group => group.name.toLowerCase() === cleanName.toLowerCase()
+    );
+
+    if (duplicate) {
+      setStatus(`A group named "${cleanName}" already exists.`);
+      return;
+    }
+
+    const group = {
+      id: `group-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+      name: cleanName,
+      memberIds: []
+    };
+
+    state.groups.push(group);
+    selectedGroupId = group.id;
+    saveState(`Group created: ${cleanName}`);
+    renderAll();
+  }
+
+  function deleteGroup(groupId) {
+    const group = groupById(groupId);
+    if (!group) return;
+
+    if (!window.confirm(`Delete group "${group.name}"? Members themselves will not be deleted.`)) {
+      return;
+    }
+
+    state.groups = state.groups.filter(item => item.id !== group.id);
+    selectedGroupId = state.groups[0]?.id || null;
+    saveState(`Group deleted: ${group.name}`);
+    renderAll();
+  }
+
+  function importGroupIntoSession(groupId) {
+    const group = groupById(groupId);
+    if (!group) {
+      setStatus('Choose a group first.');
+      return;
+    }
+
+    const validIds = new Set(state.members.map(member => member.id));
+    const sessionIds = new Set(getSessionMemberIds());
+    let added = 0;
+
+    group.memberIds.forEach(id => {
+      if (validIds.has(id) && !sessionIds.has(id)) {
+        sessionIds.add(id);
+        const member = memberById(id);
+        if (member) member.present = false;
+        added += 1;
+      }
+    });
+
+    state.sessionMemberIds = [...sessionIds];
+
+    saveState(
+      added
+        ? `${added} participant${added === 1 ? '' : 's'} imported from ${group.name}.`
+        : `${group.name} is already fully included in this session.`
+    );
+    renderAll();
   }
 
   function getSessionMemberIds() {
@@ -92,6 +195,11 @@
 
     return {
       members: state.members.map(m => ({ ...m })),
+      groups: state.groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        memberIds: [...group.memberIds]
+      })),
       sessionMemberIds: [...state.sessionMemberIds],
       matches: state.matches.map(m => ({
         ...m,
@@ -605,11 +713,15 @@
       if (!query) return true;
 
       const typeText = membershipLabel(member).toLowerCase();
+      const groupText = memberGroups(member.id)
+        .map(group => group.name.toLowerCase())
+        .join(' ');
 
       return (
         member.name.toLowerCase().includes(query) ||
         member.tier.toLowerCase().includes(query) ||
-        typeText.includes(query)
+        typeText.includes(query) ||
+        groupText.includes(query)
       );
     };
 
@@ -626,17 +738,24 @@
       container.innerHTML = filtered.length
         ? filtered.map(member => {
             const moveLabel = gender === 'Man' ? '→ Women' : '→ Men';
-            const moveTitle = gender === 'Man' ? 'Move to Women' : 'Move to Men';
             const targetGender = gender === 'Man' ? 'Woman' : 'Man';
+            const groups = memberGroups(member.id);
 
             return `
               <div class="member-compact-row member-compact-row-with-type" data-member="${member.id}">
-                <input
-                  class="member-compact-name"
-                  value="${esc(member.name)}"
-                  aria-label="Member name"
-                  title="${esc(member.name)}"
-                />
+                <div class="member-name-groups">
+                  <input
+                    class="member-compact-name"
+                    value="${esc(member.name)}"
+                    aria-label="Member name"
+                    title="${esc(member.name)}"
+                  />
+                  <div class="member-group-chips">
+                    ${groups.length
+                      ? groups.map(group => `<span>${esc(group.name)}</span>`).join('')
+                      : '<span class="none">No group</span>'}
+                  </div>
+                </div>
 
                 <select
                   class="member-compact-tier ${tierClass[member.tier] || 'tier-q'}"
@@ -659,23 +778,17 @@
                   class="member-gender-move"
                   type="button"
                   data-target-gender="${targetGender}"
-                  title="${moveTitle}"
                 >${moveLabel}</button>
 
                 <button
                   class="member-remove-compact"
                   type="button"
-                  title="Remove ${esc(member.name)}"
                   aria-label="Remove ${esc(member.name)}"
                 >×</button>
               </div>
             `;
           }).join('')
-        : `
-            <div class="member-list-empty">
-              ${query ? 'No matching members.' : `No ${gender === 'Man' ? 'men' : 'women'} added yet.`}
-            </div>
-          `;
+        : `<div class="member-list-empty">${query ? 'No matching members.' : 'No members in this group.'}</div>`;
 
       return { total: members.length, visible: filtered.length };
     };
@@ -683,35 +796,30 @@
     const men = renderGroup('Man', menContainer, menQuery);
     const women = renderGroup('Woman', womenContainer, womenQuery);
 
-    const totalBadge = $('#member-total');
-    const menCount = $('#men-member-count');
-    const womenCount = $('#women-member-count');
-
     const regularCount = state.members.filter(member => member.memberType === 'regular').length;
     const nonMemberCount = state.members.length - regularCount;
 
-    if (totalBadge) {
-      totalBadge.textContent = `${state.members.length} total · ${regularCount} regular · ${nonMemberCount} non-member`;
+    if ($('#member-total')) {
+      $('#member-total').textContent =
+        `${state.members.length} total · ${regularCount} regular · ${nonMemberCount} non-member`;
     }
 
-    if (menCount) {
-      menCount.textContent = menQuery
+    if ($('#men-member-count')) {
+      $('#men-member-count').textContent = menQuery
         ? `${men.visible} of ${men.total}`
         : `${men.total} members`;
     }
 
-    if (womenCount) {
-      womenCount.textContent = womenQuery
+    if ($('#women-member-count')) {
+      $('#women-member-count').textContent = womenQuery
         ? `${women.visible} of ${women.total}`
         : `${women.total} members`;
     }
 
     $$('.member-compact-name').forEach(input => {
       input.addEventListener('change', event => {
-        const row = event.target.closest('[data-member]');
-        const member = memberById(row.dataset.member);
+        const member = memberById(event.target.closest('[data-member]').dataset.member);
         if (!member) return;
-
         member.name = event.target.value.trim() || 'Unnamed';
         saveState('Member saved.');
         renderAll();
@@ -720,10 +828,8 @@
 
     $$('.member-compact-tier').forEach(select => {
       select.addEventListener('change', event => {
-        const row = event.target.closest('[data-member]');
-        const member = memberById(row.dataset.member);
+        const member = memberById(event.target.closest('[data-member]').dataset.member);
         if (!member) return;
-
         member.tier = event.target.value;
         saveState('Member skill tier saved.');
         renderAll();
@@ -732,14 +838,9 @@
 
     $$('.member-type-select').forEach(select => {
       select.addEventListener('change', event => {
-        const row = event.target.closest('[data-member]');
-        const member = memberById(row.dataset.member);
+        const member = memberById(event.target.closest('[data-member]').dataset.member);
         if (!member) return;
-
-        member.memberType = event.target.value === 'non-member'
-          ? 'non-member'
-          : 'regular';
-
+        member.memberType = event.target.value === 'non-member' ? 'non-member' : 'regular';
         saveState(`${member.name} marked as ${membershipLabel(member)}.`);
         renderAll();
       });
@@ -747,10 +848,8 @@
 
     $$('.member-gender-move').forEach(button => {
       button.addEventListener('click', event => {
-        const row = event.target.closest('[data-member]');
-        const member = memberById(row.dataset.member);
+        const member = memberById(event.target.closest('[data-member]').dataset.member);
         if (!member) return;
-
         member.gender = event.currentTarget.dataset.targetGender;
         saveState(`${member.name} moved to ${member.gender === 'Man' ? 'Men' : 'Women'}.`);
         renderAll();
@@ -764,22 +863,27 @@
         const member = memberById(id);
         if (!member) return;
 
-        const inSession = isSessionMember(id);
         const confirmed = window.confirm(
-          inSession
-            ? `Remove ${member.name} from the master directory? They will also be removed from the current session and all of their matches.`
-            : `Remove ${member.name} from the master member directory?`
+          isSessionMember(id)
+            ? `Remove ${member.name} from the directory? They will also be removed from the current session, all groups, and their uncompleted matches.`
+            : `Remove ${member.name} from the directory? They will also be removed from all groups.`
         );
+
         if (!confirmed) return;
 
         state.members = state.members.filter(item => item.id !== id);
+        state.groups.forEach(group => {
+          group.memberIds = group.memberIds.filter(memberId => memberId !== id);
+        });
         state.sessionMemberIds = getSessionMemberIds().filter(memberId => memberId !== id);
         state.matches = state.matches.filter(match => !match.players.includes(id));
 
-        saveState('Member removed from the directory and current session.');
+        saveState('Member removed from the directory, groups, and current session.');
         renderAll();
       });
     });
+
+    renderGroupManager();
   }
 
   function addMemberForGender(gender) {
@@ -806,12 +910,159 @@
     renderAll();
 
     requestAnimationFrame(() => {
-      const row = document.querySelector(`[data-member="${id}"]`);
-      const input = row?.querySelector('.member-compact-name');
+      const input = document.querySelector(
+        `[data-member="${id}"] .member-compact-name`
+      );
       if (input) {
         input.focus();
         input.select();
       }
+    });
+  }
+
+  function renderGroupManager() {
+    const list = $('#group-list');
+    const editor = $('#group-editor');
+    const note = $('#group-empty-note');
+    if (!list || !editor || !note) return;
+
+    normalizeRuntimeMembership();
+
+    if (!state.groups.length) {
+      selectedGroupId = null;
+      list.innerHTML = '';
+      note.textContent = 'No groups yet. Create your first group above.';
+      editor.innerHTML = `
+        <div class="group-editor-empty">
+          Groups can overlap. For example, the same member can belong to both "Tuesday" and "Advanced".
+        </div>
+      `;
+      return;
+    }
+
+    note.textContent = '';
+
+    if (!selectedGroupId || !groupById(selectedGroupId)) {
+      selectedGroupId = state.groups[0].id;
+    }
+
+    list.innerHTML = state.groups
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(group => `
+        <button
+          class="group-list-item ${group.id === selectedGroupId ? 'active' : ''}"
+          data-group-id="${esc(group.id)}"
+          type="button"
+        >
+          <span>${esc(group.name)}</span>
+          <strong>${group.memberIds.length}</strong>
+        </button>
+      `).join('');
+
+    const group = groupById(selectedGroupId);
+    if (!group) return;
+
+    const query = ($('#group-member-search')?.value || '').trim().toLowerCase();
+
+    const rows = state.members
+      .filter(member => {
+        if (!query) return true;
+        return (
+          member.name.toLowerCase().includes(query) ||
+          member.tier.toLowerCase().includes(query) ||
+          membershipLabel(member).toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) =>
+        Number(group.memberIds.includes(b.id)) - Number(group.memberIds.includes(a.id)) ||
+        a.gender.localeCompare(b.gender) ||
+        a.name.localeCompare(b.name)
+      );
+
+    editor.innerHTML = `
+      <div class="group-editor-head">
+        <div>
+          <input
+            id="group-name-edit"
+            class="group-name-edit"
+            value="${esc(group.name)}"
+            maxlength="60"
+            aria-label="Group name"
+          />
+          <span>${group.memberIds.length} members</span>
+        </div>
+        <button
+          id="delete-selected-group"
+          class="btn danger"
+          type="button"
+        >Delete group</button>
+      </div>
+
+      <input
+        id="group-member-search"
+        class="input group-member-search"
+        type="search"
+        value="${esc(query)}"
+        placeholder="Search members to add/remove..."
+        autocomplete="off"
+      />
+
+      <div class="group-member-list">
+        ${rows.map(member => `
+          <label class="group-member-row">
+            <input
+              class="group-member-toggle"
+              data-member-id="${member.id}"
+              type="checkbox"
+              ${group.memberIds.includes(member.id) ? 'checked' : ''}
+            />
+            <span class="pill ${tierClass[member.tier] || 'tier-q'}">${esc(member.name)}</span>
+            <span>${member.gender === 'Woman' ? 'W' : 'M'} · ${esc(member.tier)}</span>
+            <span>${membershipLabel(member)}</span>
+          </label>
+        `).join('')}
+      </div>
+    `;
+
+    $$('.group-list-item').forEach(button => {
+      button.addEventListener('click', event => {
+        selectedGroupId = event.currentTarget.dataset.groupId;
+        renderGroupManager();
+      });
+    });
+
+    $('#group-name-edit')?.addEventListener('change', event => {
+      const cleanName = event.target.value.trim().slice(0, 60);
+      if (!cleanName) {
+        event.target.value = group.name;
+        setStatus('Group name cannot be blank.');
+        return;
+      }
+
+      group.name = cleanName;
+      saveState('Group name saved.');
+      renderAll();
+    });
+
+    $('#delete-selected-group')?.addEventListener('click', () => {
+      deleteGroup(group.id);
+    });
+
+    $('#group-member-search')?.addEventListener('input', renderGroupManager);
+
+    $$('.group-member-toggle').forEach(input => {
+      input.addEventListener('change', event => {
+        const memberId = Number(event.target.dataset.memberId);
+        const ids = new Set(group.memberIds);
+
+        if (event.target.checked) ids.add(memberId);
+        else ids.delete(memberId);
+
+        group.memberIds = [...ids];
+        saveState('Group membership saved.');
+        renderAll();
+      });
     });
   }
 
@@ -876,6 +1127,8 @@
     const womenList = $('#session-women-list');
     if (!menList || !womenList) return;
 
+    normalizeRuntimeMembership();
+
     const participants = getSessionMembers();
     const participantIds = new Set(participants.map(member => member.id));
 
@@ -884,7 +1137,6 @@
 
     const matchesQuery = (member, query) => {
       if (!query) return true;
-
       return (
         member.name.toLowerCase().includes(query) ||
         member.tier.toLowerCase().includes(query) ||
@@ -892,7 +1144,7 @@
       );
     };
 
-    const renderGroup = (gender, container, query, countElementId) => {
+    const renderGroup = (gender, container, query, countSelector) => {
       const group = participants
         .filter(member => member.gender === gender)
         .sort((a, b) =>
@@ -901,10 +1153,9 @@
         );
 
       const filtered = group.filter(member => matchesQuery(member, query));
-      const countEl = $(countElementId);
 
-      if (countEl) {
-        countEl.textContent = query
+      if ($(countSelector)) {
+        $(countSelector).textContent = query
           ? `${filtered.length} of ${group.length}`
           : `${group.length} participants`;
       }
@@ -923,11 +1174,10 @@
                 class="session-member-remove"
                 data-id="${member.id}"
                 type="button"
-                title="Remove ${esc(member.name)} from this session"
               >Remove</button>
             </div>
           `).join('')
-        : `<div class="session-member-empty">${query ? 'No matching participants.' : 'No participants in this group.'}</div>`;
+        : `<div class="session-member-empty">${query ? 'No matching participants.' : 'No participants.'}</div>`;
     };
 
     renderGroup('Man', menList, menQuery, '#session-men-count');
@@ -935,41 +1185,48 @@
 
     const regular = participants.filter(member => member.memberType === 'regular').length;
     const nonMembers = participants.length - regular;
-    const summary = $('#session-participant-summary');
 
-    if (summary) {
-      summary.innerHTML = `
+    if ($('#session-participant-summary')) {
+      $('#session-participant-summary').innerHTML = `
         <span><strong>${participants.length}</strong> participants</span>
         <span><strong>${regular}</strong> regular</span>
         <span><strong>${nonMembers}</strong> non-member</span>
       `;
     }
 
-    const populateAddSelect = (selector, gender) => {
-      const select = $(selector);
-      if (!select) return;
+    const groupSelect = $('#session-group-select');
+    if (groupSelect) {
+      groupSelect.innerHTML = state.groups.length
+        ? `<option value="">Choose a group…</option>` +
+          state.groups
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(group => `
+              <option value="${esc(group.id)}">
+                ${esc(group.name)} · ${group.memberIds.length} member${group.memberIds.length === 1 ? '' : 's'}
+              </option>
+            `).join('')
+        : '<option value="">Create a group in Members first</option>';
+    }
 
+    const individualSelect = $('#session-add-individual-select');
+    if (individualSelect) {
       const available = state.members
-        .filter(member =>
-          member.gender === gender &&
-          !participantIds.has(member.id)
-        )
+        .filter(member => !participantIds.has(member.id))
         .sort((a, b) =>
-          a.memberType.localeCompare(b.memberType) ||
+          a.gender.localeCompare(b.gender) ||
           a.name.localeCompare(b.name)
         );
 
-      select.innerHTML = available.length
-        ? `<option value="">Select member…</option>` + available.map(member => `
+      individualSelect.innerHTML = available.length
+        ? `<option value="">Add individual…</option>` +
+          available.map(member => `
             <option value="${member.id}">
-              ${esc(member.name)} · ${esc(member.tier)} · ${membershipLabel(member)}
+              ${esc(member.name)} · ${member.gender === 'Woman' ? 'W' : 'M'} · ${esc(member.tier)}
             </option>
           `).join('')
-        : '<option value="">All members already added</option>';
-    };
-
-    populateAddSelect('#session-add-man-select', 'Man');
-    populateAddSelect('#session-add-woman-select', 'Woman');
+        : '<option value="">All directory members already added</option>';
+    }
 
     $$('.session-member-remove').forEach(button => {
       button.addEventListener('click', event => {
@@ -1627,22 +1884,22 @@
   function renderSession() {
     const participants = getSessionMembers();
     const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
-    const regular = participants.filter(member => member.memberType === 'regular').length;
-    const nonMembers = participants.length - regular;
 
     const cards = [
       ['Participants', participants.length],
-      ['Regular / Non-member', `${regular} / ${nonMembers}`],
-      ['Rotations / Courts', `${rounds} / ${state.courts}`],
-      ['Planned matches', state.matches.length || rounds * state.courts]
+      ['Groups', state.groups.length],
+      ['Rotations', rounds],
+      ['Planned matches', state.matches.length]
     ];
 
-    $('#session-summary').innerHTML = cards.map(([label,value]) => `
-      <div class="summary-card">
-        <div class="label">${label}</div>
-        <div class="value">${value}</div>
-      </div>
-    `).join('');
+    if ($('#session-summary')) {
+      $('#session-summary').innerHTML = cards.map(([label,value]) => `
+        <div class="summary-card">
+          <div class="label">${label}</div>
+          <div class="value">${value}</div>
+        </div>
+      `).join('');
+    }
 
     renderSessionParticipants();
   }
@@ -2104,6 +2361,19 @@
   $('#men-member-search').addEventListener('input', renderMembers);
   $('#women-member-search').addEventListener('input', renderMembers);
 
+  $('#create-group').addEventListener('click', () => {
+    const input = $('#new-group-name');
+    createGroup(input.value);
+    input.value = '';
+  });
+
+  $('#new-group-name').addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    createGroup(event.currentTarget.value);
+    event.currentTarget.value = '';
+  });
+
   $('#session-men-search').addEventListener('input', renderSessionParticipants);
   $('#session-women-search').addEventListener('input', renderSessionParticipants);
 
@@ -2113,47 +2383,28 @@
     if (!body || !button) return;
 
     const collapsed = body.classList.toggle('collapsed');
-    button.textContent = collapsed ? 'Expand' : 'Collapse';
+    button.textContent = collapsed ? 'Show participants' : 'Hide participants';
     button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
 
-  $('#session-add-man-btn').addEventListener('click', () => {
-    const id = $('#session-add-man-select').value;
-    if (!id) {
-      setStatus('Choose a man from the member directory first.');
-      return;
-    }
-    addSessionMember(id);
+  $('#session-import-group').addEventListener('click', () => {
+    importGroupIntoSession($('#session-group-select').value);
   });
 
-  $('#session-add-woman-btn').addEventListener('click', () => {
-    const id = $('#session-add-woman-select').value;
+  $('#session-add-individual').addEventListener('click', () => {
+    const id = $('#session-add-individual-select').value;
+
     if (!id) {
-      setStatus('Choose a woman from the member directory first.');
+      setStatus('Choose a person first.');
       return;
     }
+
     addSessionMember(id);
-  });
-
-  $('#session-add-all-regular').addEventListener('click', () => {
-    const ids = new Set(getSessionMemberIds());
-    let added = 0;
-
-    state.members.forEach(member => {
-      if (member.memberType === 'regular' && !ids.has(member.id)) {
-        ids.add(member.id);
-        member.present = false;
-        added += 1;
-      }
-    });
-
-    state.sessionMemberIds = [...ids];
-    saveState(`${added} regular member${added === 1 ? '' : 's'} added to this session.`);
-    renderAll();
   });
 
   $('#session-clear-participants').addEventListener('click', () => {
     const participants = getSessionMembers();
+
     if (!participants.length) {
       setStatus('This session already has no participants.');
       return;
@@ -2162,8 +2413,8 @@
     const hasPlaying = state.matches.some(match => match.playing && !match.completed);
     const confirmed = window.confirm(
       hasPlaying
-        ? 'Clear all session participants? Playing and uncompleted matches will be removed. Completed matches will be kept.'
-        : 'Clear all participants from this session? Uncompleted matches will be removed. Completed matches will be kept.'
+        ? 'Clear all participants? Playing and uncompleted matches will be removed. Completed matches will be kept.'
+        : 'Clear all participants? Uncompleted matches will be removed. Completed matches will be kept.'
     );
 
     if (!confirmed) return;

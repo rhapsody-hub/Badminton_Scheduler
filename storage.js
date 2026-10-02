@@ -60,8 +60,21 @@
     // Return null so app.js can restore the default roster automatically.
     if (members.length === 0) return null;
 
+    const groups = Array.isArray(raw.groups)
+      ? raw.groups
+          .filter(group => group && group.id)
+          .map(group => ({
+            id: String(group.id),
+            name: String(group.name || 'Unnamed Group').slice(0, 60),
+            memberIds: Array.isArray(group.memberIds)
+              ? [...new Set(group.memberIds.map(Number).filter(id => validMemberIds.has(id)))]
+              : []
+          }))
+      : [];
+
     return {
       members,
+      groups,
       matches,
       sessionMemberIds: Array.isArray(raw.sessionMemberIds)
         ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=12" />
+  <link rel="stylesheet" href="styles.css?refresh=13" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -108,28 +108,73 @@
           <div id="women-member-list" class="member-compact-list"></div>
         </section>
       </div>
+
+      <section class="member-group-manager">
+        <div class="member-group-manager-head">
+          <div>
+            <h3>Groups</h3>
+            <p>Create reusable groups. A member can belong to more than one group.</p>
+          </div>
+          <div class="group-create-row">
+            <input
+              id="new-group-name"
+              class="input"
+              type="text"
+              maxlength="60"
+              placeholder="New group name"
+            />
+            <button id="create-group" class="btn primary" type="button">Create group</button>
+          </div>
+        </div>
+
+        <div id="group-empty-note" class="group-empty-note"></div>
+
+        <div class="group-manager-grid">
+          <div id="group-list" class="group-list"></div>
+
+          <div id="group-editor" class="group-editor">
+            <div class="group-editor-empty">Create or select a group to manage its members.</div>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section id="session" data-panel="session" hidden>
-      <div class="card">
-        <h2>Session setup</h2>
-        <div class="form-grid">
+      <div class="card simplified-session-card">
+        <div class="section-head">
+          <div>
+            <h2>Session</h2>
+            <p>Set the session, import one or more groups, then generate the matches.</p>
+          </div>
+        </div>
+
+        <div class="session-config-grid">
           <label>
             Session name
             <input id="session-name" class="input" type="text" maxlength="80" placeholder="e.g. Friday Night Session" />
           </label>
+
           <label>
             Courts
             <input id="courts" class="input" type="number" min="1" max="12" value="3" />
           </label>
+
           <label>
-            Duration (minutes)
-            <input id="duration" class="input" type="number" min="30" max="720" step="10" value="180" />
+            Duration
+            <div class="input-suffix-wrap">
+              <input id="duration" class="input" type="number" min="30" max="720" step="10" value="180" />
+              <span>min</span>
+            </div>
           </label>
+
           <label>
-            Rotation length
-            <input id="rotation-min" class="input" type="number" min="10" max="60" value="18" />
+            Rotation
+            <div class="input-suffix-wrap">
+              <input id="rotation-min" class="input" type="number" min="10" max="60" value="18" />
+              <span>min</span>
+            </div>
           </label>
+
           <label>
             Match mix
             <select id="mix" class="input">
@@ -140,84 +185,92 @@
           </label>
         </div>
 
-        <div class="session-participants-panel">
-          <div class="session-participants-head">
+        <div class="session-import-panel">
+          <div class="session-import-head">
             <div>
-              <h3>Session Participants</h3>
-              <p>Choose who is playing in this session. Match generation and attendance use only these participants.</p>
+              <h3>Participants</h3>
+              <p>Import a group. Importing another group adds its members without duplicates.</p>
             </div>
-            <div class="session-participant-actions">
-              <button id="toggle-session-participants" class="btn" type="button" aria-expanded="true">Collapse</button>
-              <button id="session-add-all-regular" class="btn" type="button">Add all regular</button>
-              <button id="session-clear-participants" class="btn danger" type="button">Clear participants</button>
-            </div>
+            <div id="session-participant-summary" class="session-participant-summary"></div>
           </div>
 
-          <div id="session-participant-summary" class="session-participant-summary"></div>
+          <div class="session-import-row">
+            <select id="session-group-select" class="input"></select>
+            <button id="session-import-group" class="btn primary" type="button">Import group</button>
 
-          <div id="session-participants-body" class="session-participants-body">
-          <div class="session-member-groups">
-            <section class="session-member-group">
-              <div class="session-member-group-head">
-                <div>
-                  <strong>Men</strong>
-                  <span id="session-men-count"></span>
-                </div>
-                <div class="session-add-row">
-                  <select id="session-add-man-select" class="input"></select>
-                  <button id="session-add-man-btn" class="btn primary" type="button">Add</button>
-                </div>
-              </div>
+            <span class="session-import-divider">or</span>
 
-              <input
-                id="session-men-search"
-                class="input session-member-search"
-                type="search"
-                placeholder="Search session men..."
-                autocomplete="off"
-              />
-
-              <div id="session-men-list" class="session-member-list"></div>
-            </section>
-
-            <section class="session-member-group">
-              <div class="session-member-group-head">
-                <div>
-                  <strong>Women</strong>
-                  <span id="session-women-count"></span>
-                </div>
-                <div class="session-add-row">
-                  <select id="session-add-woman-select" class="input"></select>
-                  <button id="session-add-woman-btn" class="btn primary" type="button">Add</button>
-                </div>
-              </div>
-
-              <input
-                id="session-women-search"
-                class="input session-member-search"
-                type="search"
-                placeholder="Search session women..."
-                autocomplete="off"
-              />
-
-              <div id="session-women-list" class="session-member-list"></div>
-            </section>
+            <select id="session-add-individual-select" class="input"></select>
+            <button id="session-add-individual" class="btn" type="button">Add person</button>
           </div>
+
+          <div class="session-participant-toolbar">
+            <button
+              id="toggle-session-participants"
+              class="btn"
+              type="button"
+              aria-expanded="false"
+            >Show participants</button>
+
+            <button id="session-clear-participants" class="btn danger" type="button">
+              Clear participants
+            </button>
+          </div>
+
+          <div id="session-participants-body" class="session-participants-body collapsed">
+            <div class="session-member-groups">
+              <section class="session-member-group">
+                <div class="session-member-group-head simplified">
+                  <div>
+                    <strong>Men</strong>
+                    <span id="session-men-count"></span>
+                  </div>
+                </div>
+
+                <input
+                  id="session-men-search"
+                  class="input session-member-search"
+                  type="search"
+                  placeholder="Search session men..."
+                  autocomplete="off"
+                />
+
+                <div id="session-men-list" class="session-member-list"></div>
+              </section>
+
+              <section class="session-member-group">
+                <div class="session-member-group-head simplified">
+                  <div>
+                    <strong>Women</strong>
+                    <span id="session-women-count"></span>
+                  </div>
+                </div>
+
+                <input
+                  id="session-women-search"
+                  class="input session-member-search"
+                  type="search"
+                  placeholder="Search session women..."
+                  autocomplete="off"
+                />
+
+                <div id="session-women-list" class="session-member-list"></div>
+              </section>
+            </div>
           </div>
         </div>
 
-        <div class="actions">
+        <div id="session-summary" class="summary-grid compact-session-summary"></div>
+
+        <div class="actions session-primary-actions">
           <button id="generate" class="btn primary" type="button">Generate / Reshuffle matches</button>
-          <button id="save-session" class="btn primary" type="button">Save Session</button>
+          <button id="save-session" class="btn" type="button">Save Session</button>
           <button id="clear-completed" class="btn" type="button">Reset match progress</button>
           <button id="reset-saved" class="btn danger" type="button">Reset current session</button>
         </div>
-
-        <p class="save-note">Saved automatically in this browser using localStorage.</p>
       </div>
-
-      <div id="session-summary" class="summary-grid"></div>
     </section>
+
 
     <section id="matches" data-panel="matches" hidden>
       <div class="section-head match-section-head">
@@ -331,9 +384,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=12" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=12" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=12" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=12" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=13" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>
