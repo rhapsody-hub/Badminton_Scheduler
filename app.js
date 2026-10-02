@@ -548,60 +548,182 @@
   }
 
   function renderMembers() {
-    $('#member-list').innerHTML = state.members.map(m => `
-      <div class="card member-row" data-member="${m.id}">
-        <label>
-          Name
-          <input class="input member-name" value="${esc(m.name)}" />
-        </label>
+    const menContainer = $('#men-member-list');
+    const womenContainer = $('#women-member-list');
+    if (!menContainer || !womenContainer) return;
 
-        <label>
-          Gender
-          <select class="input member-gender">
-            <option ${m.gender === 'Man' ? 'selected' : ''}>Man</option>
-            <option ${m.gender === 'Woman' ? 'selected' : ''}>Woman</option>
-          </select>
-        </label>
+    const menQuery = ($('#men-member-search')?.value || '').trim().toLowerCase();
+    const womenQuery = ($('#women-member-search')?.value || '').trim().toLowerCase();
 
-        <label>
-          Tier
-          <select class="input member-tier">
-            ${['A+','A','B+','B','C','D','?']
-              .map(t => `<option ${m.tier === t ? 'selected' : ''}>${t}</option>`)
-              .join('')}
-          </select>
-        </label>
+    const matchesSearch = (member, query) => {
+      if (!query) return true;
+      return (
+        member.name.toLowerCase().includes(query) ||
+        member.tier.toLowerCase().includes(query)
+      );
+    };
 
-        <button class="btn remove-member" type="button">Remove</button>
-      </div>
-    `).join('');
+    const renderGroup = (gender, container, query) => {
+      const members = state.members
+        .filter(member => member.gender === gender)
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-    $$('.member-name').forEach(el => el.addEventListener('change', e => {
-      const card = e.target.closest('[data-member]');
-      memberById(card.dataset.member).name = e.target.value.trim() || 'Unnamed';
-      saveState('Member saved.');
-      renderAll();
-    }));
+      const filtered = members.filter(member => matchesSearch(member, query));
 
-    $$('.member-gender').forEach(el => el.addEventListener('change', e => {
-      memberById(e.target.closest('[data-member]').dataset.member).gender = e.target.value;
-      saveState('Member saved.');
-      renderAll();
-    }));
+      container.innerHTML = filtered.length
+        ? filtered.map(member => {
+            const moveLabel = gender === 'Man' ? '→ Women' : '→ Men';
+            const moveTitle = gender === 'Man' ? 'Move to Women' : 'Move to Men';
+            const targetGender = gender === 'Man' ? 'Woman' : 'Man';
 
-    $$('.member-tier').forEach(el => el.addEventListener('change', e => {
-      memberById(e.target.closest('[data-member]').dataset.member).tier = e.target.value;
-      saveState('Member saved.');
-      renderAll();
-    }));
+            return `
+              <div class="member-compact-row" data-member="${member.id}">
+                <input
+                  class="member-compact-name"
+                  value="${esc(member.name)}"
+                  aria-label="Member name"
+                  title="${esc(member.name)}"
+                />
 
-    $$('.remove-member').forEach(el => el.addEventListener('click', e => {
-      const id = Number(e.target.closest('[data-member]').dataset.member);
-      state.members = state.members.filter(m => m.id !== id);
-      state.matches = state.matches.filter(x => !x.players.includes(id));
-      saveState('Member removed and session saved.');
-      renderAll();
-    }));
+                <select
+                  class="member-compact-tier ${tierClass[member.tier] || 'tier-q'}"
+                  aria-label="Skill tier for ${esc(member.name)}"
+                >
+                  ${['A+','A','B+','B','C','D','?']
+                    .map(tier => `<option ${member.tier === tier ? 'selected' : ''}>${tier}</option>`)
+                    .join('')}
+                </select>
+
+                <button
+                  class="member-gender-move"
+                  type="button"
+                  data-target-gender="${targetGender}"
+                  title="${moveTitle}"
+                >${moveLabel}</button>
+
+                <button
+                  class="member-remove-compact"
+                  type="button"
+                  title="Remove ${esc(member.name)}"
+                  aria-label="Remove ${esc(member.name)}"
+                >×</button>
+              </div>
+            `;
+          }).join('')
+        : `
+            <div class="member-list-empty">
+              ${query ? 'No matching members.' : `No ${gender === 'Man' ? 'men' : 'women'} added yet.`}
+            </div>
+          `;
+
+      return { total: members.length, visible: filtered.length };
+    };
+
+    const men = renderGroup('Man', menContainer, menQuery);
+    const women = renderGroup('Woman', womenContainer, womenQuery);
+
+    const totalBadge = $('#member-total');
+    const menCount = $('#men-member-count');
+    const womenCount = $('#women-member-count');
+
+    if (totalBadge) totalBadge.textContent = `${state.members.length} members`;
+
+    if (menCount) {
+      menCount.textContent = menQuery
+        ? `${men.visible} of ${men.total}`
+        : `${men.total} members`;
+    }
+
+    if (womenCount) {
+      womenCount.textContent = womenQuery
+        ? `${women.visible} of ${women.total}`
+        : `${women.total} members`;
+    }
+
+    $$('.member-compact-name').forEach(input => {
+      input.addEventListener('change', event => {
+        const row = event.target.closest('[data-member]');
+        const member = memberById(row.dataset.member);
+        if (!member) return;
+
+        member.name = event.target.value.trim() || 'Unnamed';
+        saveState('Member saved.');
+        renderAll();
+      });
+    });
+
+    $$('.member-compact-tier').forEach(select => {
+      select.addEventListener('change', event => {
+        const row = event.target.closest('[data-member]');
+        const member = memberById(row.dataset.member);
+        if (!member) return;
+
+        member.tier = event.target.value;
+        saveState('Member skill tier saved.');
+        renderAll();
+      });
+    });
+
+    $$('.member-gender-move').forEach(button => {
+      button.addEventListener('click', event => {
+        const row = event.target.closest('[data-member]');
+        const member = memberById(row.dataset.member);
+        if (!member) return;
+
+        member.gender = event.currentTarget.dataset.targetGender;
+        saveState(`${member.name} moved to ${member.gender === 'Man' ? 'Men' : 'Women'}.`);
+        renderAll();
+      });
+    });
+
+    $$('.member-remove-compact').forEach(button => {
+      button.addEventListener('click', event => {
+        const row = event.target.closest('[data-member]');
+        const id = Number(row.dataset.member);
+        const member = memberById(id);
+        if (!member) return;
+
+        const confirmed = window.confirm(`Remove ${member.name} from the member list?`);
+        if (!confirmed) return;
+
+        state.members = state.members.filter(item => item.id !== id);
+        state.matches = state.matches.filter(match => !match.players.includes(id));
+        saveState('Member removed and session saved.');
+        renderAll();
+      });
+    });
+  }
+
+  function addMemberForGender(gender) {
+    const id = Math.max(0, ...state.members.map(member => member.id)) + 1;
+    const label = gender === 'Woman' ? 'Woman' : 'Man';
+
+    state.members.push({
+      id,
+      name: `New ${label}`,
+      gender,
+      tier: '?',
+      present: false
+    });
+
+    saveState(`New ${label.toLowerCase()} added and saved.`);
+
+    const search = gender === 'Woman'
+      ? $('#women-member-search')
+      : $('#men-member-search');
+
+    if (search) search.value = '';
+
+    renderAll();
+
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-member="${id}"]`);
+      const input = row?.querySelector('.member-compact-name');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    });
   }
 
   function playerOptions(selected) {
@@ -1686,20 +1808,11 @@
     showPanel(window.location.hash.replace('#', '') || 'members');
   });
 
-  $('#add-member').addEventListener('click', () => {
-    const id = Math.max(0, ...state.members.map(m => m.id)) + 1;
+  $('#add-man').addEventListener('click', () => addMemberForGender('Man'));
+  $('#add-woman').addEventListener('click', () => addMemberForGender('Woman'));
 
-    state.members.push({
-      id,
-      name: `Member ${id}`,
-      gender: 'Man',
-      tier: '?',
-      present: false
-    });
-
-    saveState('New member added and saved.');
-    renderAll();
-  });
+  $('#men-member-search').addEventListener('input', renderMembers);
+  $('#women-member-search').addEventListener('input', renderMembers);
 
   $('#cloud-signin').addEventListener('click', async () => {
     const email = $('#cloud-email').value.trim();
