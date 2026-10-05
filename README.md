@@ -590,3 +590,18 @@ Group membership is now committed in three layers:
 Cloud saving is also serialized and uses the exact state snapshot captured at the time of the edit. This prevents an older delayed save from replacing newer Group selections.
 
 Changing participant name, gender, or skill tier does not modify Group membership.
+
+
+## Production authentication redirect
+
+Magic-link authentication now uses the explicit production redirect:
+
+https://rhapsody-hub.github.io/Badminton_Scheduler/
+
+This prevents a sign-in link from returning to localhost when the production website is used.
+
+Supabase Dashboard must also allow this URL under Authentication > URL Configuration:
+
+- Site URL: https://rhapsody-hub.github.io/Badminton_Scheduler/
+- Redirect URL: https://rhapsody-hub.github.io/Badminton_Scheduler/
+- Optional path wildcard: https://rhapsody-hub.github.io/Badminton_Scheduler/**

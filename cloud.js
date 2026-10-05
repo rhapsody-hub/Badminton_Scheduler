@@ -23,7 +23,9 @@
   const setRemoteStateHandler = handler => { remoteStateHandler = handler; };
   async function signInWithEmail(email) {
     if (!client) throw new Error('Cloud is not configured.');
-    const redirectTo = window.location.origin + window.location.pathname;
+    const redirectTo =
+      window.APP_CONFIG?.authRedirectUrl ||
+      (window.location.origin + window.location.pathname);
     const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
     if (error) throw error;
   }
