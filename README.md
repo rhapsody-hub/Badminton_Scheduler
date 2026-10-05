@@ -562,3 +562,31 @@ A participant can therefore be:
 When a Group is imported into a Session, its group-specific Regular / Non-member status is copied into the Session. If the same participant was already imported from another Group, the first imported status remains because duplicate participants are ignored.
 
 Existing saved data is migrated automatically. Older global Regular / Non-member values are used as the initial status for existing Group memberships so current data is not lost.
+
+
+## Group membership persistence fix
+
+Participant-directory edits and Group membership are now fully independent.
+
+Changing a participant's:
+
+- Name
+- Gender
+- Skill tier
+
+does not change which Groups they belong to and does not change their Group-specific Regular / Non-member status.
+
+The internal fix preserves Group object identity during state normalization and Group checkbox/status handlers always update the current Group object before saving. This prevents stale editor references from overwriting or losing Group selections.
+
+
+## Group selection save fix
+
+Group membership is now committed in three layers:
+
+1. Every checkbox / Regular-Non-member change saves immediately.
+2. Before switching from one Group to another, the visible checkbox state is read directly from the page and written back to that Group.
+3. Before leaving the Groups page, the visible Group is committed again as a fail-safe.
+
+Cloud saving is also serialized and uses the exact state snapshot captured at the time of the edit. This prevents an older delayed save from replacing newer Group selections.
+
+Changing participant name, gender, or skill tier does not modify Group membership.

@@ -54,6 +54,8 @@
   let cloudReady = false;
   let applyingRemoteState = false;
   let cloudSaveTimer = null;
+  let cloudSavePendingSnapshot = null;
+  let cloudSaveInFlight = false;
   let historySource = 'local';
   let selectedGroupId = null;
 
@@ -74,38 +76,51 @@
       state.groups = [];
     }
 
-    state.groups = state.groups
-      .filter(group => group && group.id)
-      .map(group => {
-        const memberIds = Array.isArray(group.memberIds)
-          ? [...new Set(group.memberIds.map(Number).filter(id => validIds.has(id)))]
-          : [];
+    /*
+      IMPORTANT:
+      Normalize each existing group IN PLACE.
 
-        const sourceTypes =
-          group.memberTypes && typeof group.memberTypes === 'object'
-            ? group.memberTypes
-            : {};
+      Older versions rebuilt every group object on each save/render. The Groups
+      editor event handlers then held references to stale objects, so later
+      participant edits could appear to reset recently selected group members.
+      Keeping object identity stable prevents that.
+    */
+    state.groups = state.groups.filter(group => group && group.id);
 
-        const memberTypes = {};
+    state.groups.forEach(group => {
+      group.id = String(group.id);
+      group.name = String(group.name || 'Unnamed Group').slice(0, 60);
 
-        memberIds.forEach(id => {
-          const participant = state.members.find(item => item.id === id);
-          const legacyType = participant?.memberType === 'non-member'
-            ? 'non-member'
-            : 'regular';
+      const memberIds = Array.isArray(group.memberIds)
+        ? [...new Set(
+            group.memberIds
+              .map(Number)
+              .filter(id => validIds.has(id))
+          )]
+        : [];
 
-          memberTypes[id] = sourceTypes[id] === 'non-member'
-            ? 'non-member'
-            : (sourceTypes[id] === 'regular' ? 'regular' : legacyType);
-        });
+      const sourceTypes =
+        group.memberTypes && typeof group.memberTypes === 'object'
+          ? group.memberTypes
+          : {};
 
-        return {
-          id: String(group.id),
-          name: String(group.name || 'Unnamed Group').slice(0, 60),
-          memberIds,
-          memberTypes
-        };
+      const nextTypes = {};
+
+      memberIds.forEach(id => {
+        const participant = state.members.find(item => item.id === id);
+        const legacyType = participant?.memberType === 'non-member'
+          ? 'non-member'
+          : 'regular';
+
+        nextTypes[id] = sourceTypes[id] === 'non-member'
+          ? 'non-member'
+          : (sourceTypes[id] === 'regular' ? 'regular' : legacyType);
       });
+
+      // Mutate the current group instead of replacing the group object.
+      group.memberIds = memberIds;
+      group.memberTypes = nextTypes;
+    });
 
     if (!Array.isArray(state.sessionMemberIds)) {
       state.sessionMemberIds = [];
@@ -119,7 +134,10 @@
       ];
     }
 
-    if (!state.sessionParticipantTypes || typeof state.sessionParticipantTypes !== 'object') {
+    if (
+      !state.sessionParticipantTypes ||
+      typeof state.sessionParticipantTypes !== 'object'
+    ) {
       state.sessionParticipantTypes = {};
     }
 
@@ -141,13 +159,15 @@
 
     state.sessionParticipantTypes = normalizedSessionTypes;
 
-    if (selectedGroupId && !state.groups.some(group => group.id === selectedGroupId)) {
+    if (
+      selectedGroupId &&
+      !state.groups.some(group => group.id === selectedGroupId)
+    ) {
       selectedGroupId = state.groups[0]?.id || null;
     }
   }
 
   function groupById(id) {
-    normalizeRuntimeMembership();
     return state.groups.find(group => group.id === String(id));
   }
 
@@ -297,24 +317,63 @@
     };
   }
 
-  function saveState(message = '') {
+  async function flushCloudSaveQueue() {
+    if (
+      cloudSaveInFlight ||
+      !cloudReady ||
+      !window.BadmintonCloud?.getActiveWorkspace()
+    ) {
+      return;
+    }
+
+    cloudSaveInFlight = true;
+
+    try {
+      while (cloudSavePendingSnapshot) {
+        const snapshotToSave = cloudSavePendingSnapshot;
+        cloudSavePendingSnapshot = null;
+
+        await window.BadmintonCloud.saveCurrentState(snapshotToSave);
+      }
+    } catch (error) {
+      setCloudUiStatus('error', error.message);
+    } finally {
+      cloudSaveInFlight = false;
+
+      if (cloudSavePendingSnapshot) {
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = setTimeout(flushCloudSaveQueue, 0);
+      }
+    }
+  }
+
+  function queueCloudSave(snapshot, delay = 350) {
+    if (
+      applyingRemoteState ||
+      !cloudReady ||
+      !window.BadmintonCloud?.getActiveWorkspace()
+    ) {
+      return;
+    }
+
+    // Store the exact snapshot produced by this action. Do not recalculate
+    // state later after another UI action has occurred.
+    cloudSavePendingSnapshot = JSON.parse(JSON.stringify(snapshot));
+
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(flushCloudSaveQueue, Math.max(0, delay));
+  }
+
+  function saveState(message = '', cloudDelay = 350) {
     const snapshot = snapshotState();
     const ok = window.BadmintonStorage?.save(snapshot);
 
-    if (!applyingRemoteState && cloudReady && window.BadmintonCloud?.getActiveWorkspace()) {
-      clearTimeout(cloudSaveTimer);
-      cloudSaveTimer = setTimeout(async () => {
-        try {
-          await window.BadmintonCloud.saveCurrentState(snapshotState());
-        } catch (error) {
-          setCloudUiStatus('error', error.message);
-        }
-      }, 350);
-    }
+    queueCloudSave(snapshot, cloudDelay);
 
     if (message) {
       setStatus(ok ? message : 'Changes made, but browser storage is unavailable.');
     }
+
     return ok;
   }
 
@@ -785,6 +844,8 @@
   }
 
   function renderMembers() {
+    // Participant edits modify directory fields only. Group membership/status
+    // is owned exclusively by state.groups and is never recalculated here.
     const menContainer = $('#men-member-list');
     const womenContainer = $('#women-member-list');
     if (!menContainer || !womenContainer) return;
@@ -875,6 +936,7 @@
 
     $$('.member-compact-name').forEach(input => {
       input.addEventListener('change', event => {
+        commitVisibleGroupEditor();
         const participant = memberById(event.target.closest('[data-member]').dataset.member);
         if (!participant) return;
 
@@ -886,6 +948,7 @@
 
     $$('.member-compact-tier').forEach(select => {
       select.addEventListener('change', event => {
+        commitVisibleGroupEditor();
         const participant = memberById(event.target.closest('[data-member]').dataset.member);
         if (!participant) return;
 
@@ -897,6 +960,7 @@
 
     $$('.member-gender-move').forEach(button => {
       button.addEventListener('click', event => {
+        commitVisibleGroupEditor();
         const participant = memberById(event.target.closest('[data-member]').dataset.member);
         if (!participant) return;
 
@@ -908,6 +972,7 @@
 
     $$('.member-remove-compact').forEach(button => {
       button.addEventListener('click', event => {
+        commitVisibleGroupEditor();
         const row = event.target.closest('[data-member]');
         const id = Number(row.dataset.member);
         const participant = memberById(id);
@@ -974,6 +1039,56 @@
         input.select();
       }
     });
+  }
+
+  function commitVisibleGroupEditor(message = '') {
+    const editor = $('#group-editor');
+
+    if (
+      !editor ||
+      !selectedGroupId ||
+      $('#groups')?.hidden
+    ) {
+      return false;
+    }
+
+    const currentGroup = groupById(selectedGroupId);
+    if (!currentGroup) return false;
+
+    const toggles = [
+      ...editor.querySelectorAll('.group-member-toggle')
+    ];
+
+    if (!toggles.length) return false;
+
+    const memberIds = [];
+    const memberTypes = {};
+
+    toggles.forEach(toggle => {
+      if (!toggle.checked) return;
+
+      const participantId = Number(toggle.dataset.memberId);
+      if (!Number.isFinite(participantId)) return;
+
+      memberIds.push(participantId);
+
+      const typeSelect = editor.querySelector(
+        `.group-member-type[data-member-id="${participantId}"]`
+      );
+
+      memberTypes[participantId] =
+        typeSelect?.value === 'non-member'
+          ? 'non-member'
+          : 'regular';
+    });
+
+    currentGroup.memberIds = [...new Set(memberIds)];
+    currentGroup.memberTypes = memberTypes;
+
+    // Group edits should be persisted immediately rather than waiting for
+    // the normal debounce window.
+    saveState(message, 0);
+    return true;
   }
 
   function renderGroupManager() {
@@ -1135,7 +1250,12 @@
 
     $$('.group-list-item').forEach(button => {
       button.addEventListener('click', event => {
-        selectedGroupId = event.currentTarget.dataset.groupId;
+        const nextGroupId = event.currentTarget.dataset.groupId;
+
+        if (nextGroupId === selectedGroupId) return;
+
+        commitVisibleGroupEditor('Group membership saved.');
+        selectedGroupId = nextGroupId;
         renderGroupManager();
       });
     });
@@ -1185,24 +1305,35 @@
     $$('.group-member-toggle').forEach(input => {
       input.addEventListener('change', event => {
         const participantId = Number(event.currentTarget.dataset.memberId);
-        const ids = new Set(group.memberIds);
 
-        if (!group.memberTypes || typeof group.memberTypes !== 'object') {
-          group.memberTypes = {};
+        // Always obtain the current state object; never rely on an old closure.
+        const currentGroup = groupById(group.id);
+        if (!currentGroup) {
+          renderGroupManager();
+          return;
         }
+
+        if (
+          !currentGroup.memberTypes ||
+          typeof currentGroup.memberTypes !== 'object'
+        ) {
+          currentGroup.memberTypes = {};
+        }
+
+        const ids = new Set(currentGroup.memberIds);
 
         if (event.currentTarget.checked) {
           ids.add(participantId);
 
-          if (!group.memberTypes[participantId]) {
-            group.memberTypes[participantId] = 'regular';
+          if (!currentGroup.memberTypes[participantId]) {
+            currentGroup.memberTypes[participantId] = 'regular';
           }
         } else {
           ids.delete(participantId);
-          delete group.memberTypes[participantId];
+          delete currentGroup.memberTypes[participantId];
         }
 
-        group.memberIds = [...ids];
+        currentGroup.memberIds = [...ids];
 
         const typeSelect = document.querySelector(
           `.group-member-type[data-member-id="${participantId}"]`
@@ -1212,12 +1343,17 @@
           typeSelect.disabled = !event.currentTarget.checked;
 
           if (event.currentTarget.checked) {
-            typeSelect.value = groupMembershipType(group, participantId);
+            typeSelect.value = groupMembershipType(
+              currentGroup,
+              participantId
+            );
           }
         }
 
-        saveState('Group membership saved.');
-        updateGroupSummaryUi(group);
+        saveState('Group membership saved.', 0);
+        updateGroupSummaryUi(currentGroup);
+
+        // Update session import counts/options without rebuilding this editor.
         renderSessionParticipants();
       });
     });
@@ -1226,18 +1362,26 @@
       select.addEventListener('change', event => {
         const participantId = Number(event.currentTarget.dataset.memberId);
 
-        if (!group.memberIds.includes(participantId)) return;
-
-        if (!group.memberTypes || typeof group.memberTypes !== 'object') {
-          group.memberTypes = {};
+        // Same protection for group-specific Regular / Non-member changes.
+        const currentGroup = groupById(group.id);
+        if (!currentGroup || !currentGroup.memberIds.includes(participantId)) {
+          return;
         }
 
-        group.memberTypes[participantId] =
+        if (
+          !currentGroup.memberTypes ||
+          typeof currentGroup.memberTypes !== 'object'
+        ) {
+          currentGroup.memberTypes = {};
+        }
+
+        currentGroup.memberTypes[participantId] =
           event.currentTarget.value === 'non-member'
             ? 'non-member'
             : 'regular';
 
-        saveState('Group participant status saved.');
+        saveState('Group participant status saved.', 0);
+        updateGroupSummaryUi(currentGroup);
         renderSessionParticipants();
       });
     });
@@ -2511,12 +2655,29 @@
   $$('.tab').forEach(tab => {
     tab.addEventListener('click', event => {
       event.preventDefault();
+
+      if (
+        !$('#groups')?.hidden &&
+        tab.dataset.tab !== 'groups'
+      ) {
+        commitVisibleGroupEditor('Group membership saved.');
+      }
+
       showPanel(tab.dataset.tab, true);
     });
   });
 
   window.addEventListener('hashchange', () => {
-    showPanel(window.location.hash.replace('#', '') || 'participants');
+    const target = window.location.hash.replace('#', '') || 'participants';
+
+    if (
+      !$('#groups')?.hidden &&
+      target !== 'groups'
+    ) {
+      commitVisibleGroupEditor('Group membership saved.');
+    }
+
+    showPanel(target);
   });
 
   $('#add-man').addEventListener('click', () => addMemberForGender('Man'));
