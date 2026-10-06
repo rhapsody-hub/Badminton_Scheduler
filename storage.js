@@ -94,22 +94,42 @@
           }))
       : [];
 
+    const normalizedSessionMemberIds = Array.isArray(raw.sessionMemberIds)
+      ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+      : members.map(member => member.id);
+
+    const normalizedSessionGroupIds = Array.isArray(raw.sessionGroupIds)
+      ? [...new Set(
+          raw.sessionGroupIds
+            .map(String)
+            .filter(id => groups.some(group => group.id === id))
+        )]
+      : [];
+
+    const hasSourceTracking =
+      Array.isArray(raw.sessionGroupIds) ||
+      Array.isArray(raw.sessionManualMemberIds) ||
+      Array.isArray(raw.sessionExcludedMemberIds);
+
     return {
       members,
       groups,
       matches,
-      sessionMemberIds: Array.isArray(raw.sessionMemberIds)
-        ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
-        : members.map(member => member.id),
+      sessionMemberIds: normalizedSessionMemberIds,
+      sessionGroupIds: normalizedSessionGroupIds,
+      sessionManualMemberIds: Array.isArray(raw.sessionManualMemberIds)
+        ? [...new Set(raw.sessionManualMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+        : (hasSourceTracking ? [] : [...normalizedSessionMemberIds]),
+      sessionExcludedMemberIds: Array.isArray(raw.sessionExcludedMemberIds)
+        ? [...new Set(raw.sessionExcludedMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+        : [],
       sessionParticipantTypes: (() => {
         const source = raw.sessionParticipantTypes && typeof raw.sessionParticipantTypes === 'object'
           ? raw.sessionParticipantTypes
           : {};
         const result = {};
 
-        const ids = Array.isArray(raw.sessionMemberIds)
-          ? [...new Set(raw.sessionMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
-          : members.map(member => member.id);
+        const ids = normalizedSessionMemberIds;
 
         ids.forEach(id => {
           const participant = members.find(item => item.id === id);

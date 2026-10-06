@@ -40,6 +40,9 @@
     members: defaultMembers.map(m => ({ ...m })),
     groups: [],
     sessionMemberIds: [],
+    sessionGroupIds: [],
+    sessionManualMemberIds: [],
+    sessionExcludedMemberIds: [],
     sessionParticipantTypes: {},
     matches: [],
     sessionName: '',
@@ -134,6 +137,20 @@
       ];
     }
 
+    const validGroupIds = new Set(state.groups.map(group => group.id));
+
+    state.sessionGroupIds = Array.isArray(state.sessionGroupIds)
+      ? [...new Set(state.sessionGroupIds.map(String).filter(id => validGroupIds.has(id)))]
+      : [];
+
+    state.sessionManualMemberIds = Array.isArray(state.sessionManualMemberIds)
+      ? [...new Set(state.sessionManualMemberIds.map(Number).filter(id => validIds.has(id)))]
+      : [];
+
+    state.sessionExcludedMemberIds = Array.isArray(state.sessionExcludedMemberIds)
+      ? [...new Set(state.sessionExcludedMemberIds.map(Number).filter(id => validIds.has(id)))]
+      : [];
+
     if (
       !state.sessionParticipantTypes ||
       typeof state.sessionParticipantTypes !== 'object'
@@ -193,6 +210,111 @@
     return type === 'non-member' ? 'Non-member' : 'Regular';
   }
 
+  function sameIdSet(a, b) {
+    const left = new Set((a || []).map(Number));
+    const right = new Set((b || []).map(Number));
+
+    if (left.size !== right.size) return false;
+
+    for (const id of left) {
+      if (!right.has(id)) return false;
+    }
+
+    return true;
+  }
+
+  function participantSources(participantId) {
+    const id = Number(participantId);
+
+    const linkedGroups = state.sessionGroupIds
+      .map(groupId => groupById(groupId))
+      .filter(Boolean)
+      .filter(group => group.memberIds.includes(id));
+
+    return {
+      manual: state.sessionManualMemberIds.includes(id),
+      groups: linkedGroups
+    };
+  }
+
+  function syncSessionParticipantsFromSources() {
+    normalizeRuntimeMembership();
+
+    const validIds = new Set(state.members.map(participant => participant.id));
+    const excluded = new Set(state.sessionExcludedMemberIds);
+    const nextIds = new Set(
+      state.sessionManualMemberIds.filter(id => validIds.has(id))
+    );
+
+    state.sessionGroupIds.forEach(groupId => {
+      const group = groupById(groupId);
+      if (!group) return;
+
+      group.memberIds.forEach(id => {
+        if (validIds.has(id)) nextIds.add(id);
+      });
+    });
+
+    excluded.forEach(id => nextIds.delete(id));
+
+    const previousIds = new Set(state.sessionMemberIds);
+    const nextIdList = [...nextIds];
+    const removedIds = new Set(
+      [...previousIds].filter(id => !nextIds.has(id))
+    );
+
+    state.sessionMemberIds = nextIdList;
+
+    const nextTypes = {};
+
+    nextIdList.forEach(id => {
+      const firstLinkedGroup = state.sessionGroupIds
+        .map(groupId => groupById(groupId))
+        .find(group => group?.memberIds.includes(id));
+
+      if (firstLinkedGroup) {
+        nextTypes[id] = groupMembershipType(firstLinkedGroup, id);
+      } else {
+        nextTypes[id] =
+          state.sessionParticipantTypes?.[id] === 'non-member'
+            ? 'non-member'
+            : 'regular';
+      }
+    });
+
+    state.sessionParticipantTypes = nextTypes;
+
+    if (removedIds.size) {
+      removedIds.forEach(id => {
+        const participant = memberById(id);
+        if (participant) participant.present = false;
+      });
+
+      state.matches = state.matches.filter(match =>
+        match.completed ||
+        !match.players.some(id => removedIds.has(id))
+      );
+    }
+
+    return {
+      added: nextIdList.filter(id => !previousIds.has(id)),
+      removed: [...removedIds]
+    };
+  }
+
+  function inferLegacyGroupLinkBeforeEdit(group) {
+    if (!group) return false;
+    if (state.sessionGroupIds.length) return false;
+    if (!state.sessionMemberIds.length) return false;
+
+    if (!sameIdSet(state.sessionMemberIds, group.memberIds)) return false;
+
+    state.sessionGroupIds = [group.id];
+    state.sessionManualMemberIds = [];
+    state.sessionExcludedMemberIds = [];
+    return true;
+  }
+
   function createGroup(name) {
     const cleanName = String(name || '').trim().slice(0, 60);
     if (!cleanName) {
@@ -231,8 +353,11 @@
     }
 
     state.groups = state.groups.filter(item => item.id !== group.id);
+    state.sessionGroupIds = state.sessionGroupIds.filter(id => id !== group.id);
     selectedGroupId = state.groups[0]?.id || null;
-    saveState(`Group deleted: ${group.name}`);
+
+    syncSessionParticipantsFromSources();
+    saveState(`Group deleted: ${group.name}`, 0);
     renderAll();
   }
 
@@ -243,33 +368,32 @@
       return;
     }
 
-    const validIds = new Set(state.members.map(participant => participant.id));
-    const sessionIds = new Set(getSessionMemberIds());
-    let added = 0;
+    const alreadyLinked = state.sessionGroupIds.includes(group.id);
 
-    if (!state.sessionParticipantTypes || typeof state.sessionParticipantTypes !== 'object') {
-      state.sessionParticipantTypes = {};
+    if (!alreadyLinked) {
+      if (sameIdSet(state.sessionMemberIds, group.memberIds)) {
+        state.sessionManualMemberIds = state.sessionManualMemberIds.filter(
+          id => !group.memberIds.includes(id)
+        );
+      }
+
+      state.sessionGroupIds = [...state.sessionGroupIds, group.id];
+
+      group.memberIds.forEach(id => {
+        state.sessionExcludedMemberIds =
+          state.sessionExcludedMemberIds.filter(excludedId => excludedId !== id);
+      });
     }
 
-    group.memberIds.forEach(id => {
-      if (!validIds.has(id) || sessionIds.has(id)) return;
-
-      sessionIds.add(id);
-
-      const participant = memberById(id);
-      if (participant) participant.present = false;
-
-      state.sessionParticipantTypes[id] = groupMembershipType(group, id);
-      added += 1;
-    });
-
-    state.sessionMemberIds = [...sessionIds];
+    syncSessionParticipantsFromSources();
 
     saveState(
-      added
-        ? `${added} participant${added === 1 ? '' : 's'} imported from ${group.name}.`
-        : `${group.name} is already fully included in this session.`
+      alreadyLinked
+        ? `${group.name} is already linked to this session.`
+        : `${group.name} linked to this session.`,
+      0
     );
+
     renderAll();
   }
 
@@ -303,6 +427,9 @@
         memberTypes: { ...(group.memberTypes || {}) }
       })),
       sessionMemberIds: [...state.sessionMemberIds],
+      sessionGroupIds: [...state.sessionGroupIds],
+      sessionManualMemberIds: [...state.sessionManualMemberIds],
+      sessionExcludedMemberIds: [...state.sessionExcludedMemberIds],
       sessionParticipantTypes: { ...(state.sessionParticipantTypes || {}) },
       matches: state.matches.map(m => ({
         ...m,
@@ -568,6 +695,14 @@
     return 'Open Doubles';
   }
 
+  function setGenerateMessage(message = '', type = '') {
+    const element = $('#session-generate-message');
+    if (!element) return;
+
+    element.textContent = message;
+    element.className = `session-generate-message${type ? ` ${type}` : ''}`;
+  }
+
   function randomValue() {
     // crypto gives a better reshuffle when available; Math.random is the fallback.
     if (window.crypto?.getRandomValues) {
@@ -665,7 +800,20 @@
     return shuffleCopy(pool).slice(0,4);
   }
 
-  function generateMatches() {
+  async function generateMatches() {
+    const button = $('#generate');
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Generating…';
+      }
+
+      setGenerateMessage('Generating schedule…', 'working');
+
+      state.sessionName = $('#session-name').value.trim().slice(0, 80);
+      state.sessionDate = $('#session-date').value || localDateValue();
+
     state.courts = Math.max(1, Math.min(12, Number($('#courts').value) || 3));
     state.duration = Math.max(30, Math.min(720, Number($('#duration').value) || 180));
     state.rotationMin = Math.max(10, Math.min(60, Number($('#rotation-min').value) || 18));
@@ -679,6 +827,17 @@
       setStatus('Add at least 4 participants to this session before generating matches.');
       return;
     }
+
+
+      const participantCount = participants.length;
+
+      if (participantCount < 4) {
+        const message =
+          `Cannot generate matches: this session has ${participantCount} participant${participantCount === 1 ? '' : 's'}. Add at least 4.`;
+        setStatus(message);
+        setGenerateMessage(message, 'error');
+        return;
+      }
 
     const plays = new Map(participants.map(m => [m.id, 0]));
     const last = new Map(participants.map(m => [m.id, -99]));
@@ -830,17 +989,52 @@
       }
     }
 
-    state.matches = matches;
-    saveState();
-    renderAll();
 
-    const counts = [...plays.values()];
-    const minMatches = Math.min(...counts);
-    const maxMatches = Math.max(...counts);
+      if (!matches.length) {
+        const message =
+          'No matches could be generated from the current participants and settings.';
+        setStatus(message);
+        setGenerateMessage(message, 'error');
+        return;
+      }
 
-    setStatus(
-      `Reshuffled ${matches.length} matches. Player participation range: ${minMatches}–${maxMatches} matches.`
-    );
+      state.matches = matches;
+
+      // Save immediately so the generated schedule is not left waiting behind
+      // the normal cloud debounce.
+      saveState('', 0);
+      renderAll();
+
+      const counts = [...plays.values()];
+      const minMatches = Math.min(...counts);
+      const maxMatches = Math.max(...counts);
+
+      const message =
+        `Generated ${matches.length} matches for ${participantCount} participants. ` +
+        `Participation range: ${minMatches}–${maxMatches} matches.`;
+
+      setStatus(message);
+      setGenerateMessage(message, 'success');
+
+      // The schedule lives on the Matches page. Moving there immediately makes
+      // Generate / Reshuffle visibly complete its action.
+      showPanel('matches', true);
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Match generation failed:', error);
+
+      const detail = error?.message || String(error);
+      const message = `Match generation failed: ${detail}`;
+
+      setStatus(message);
+      setGenerateMessage(message, 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Generate / Reshuffle matches';
+      }
+    }
   }
 
   function renderMembers() {
@@ -994,6 +1188,8 @@
         });
 
         state.sessionMemberIds = getSessionMemberIds().filter(memberId => memberId !== id);
+        state.sessionManualMemberIds = state.sessionManualMemberIds.filter(memberId => memberId !== id);
+        state.sessionExcludedMemberIds = state.sessionExcludedMemberIds.filter(memberId => memberId !== id);
 
         if (state.sessionParticipantTypes) {
           delete state.sessionParticipantTypes[id];
@@ -1001,7 +1197,8 @@
 
         state.matches = state.matches.filter(match => !match.players.includes(id));
 
-        saveState('Participant removed from directory, groups, and current session.');
+        syncSessionParticipantsFromSources();
+        saveState('Participant removed from directory, groups, and current session.', 0);
         renderAll();
       });
     });
@@ -1085,8 +1282,10 @@
     currentGroup.memberIds = [...new Set(memberIds)];
     currentGroup.memberTypes = memberTypes;
 
-    // Group edits should be persisted immediately rather than waiting for
-    // the normal debounce window.
+    if (state.sessionGroupIds.includes(currentGroup.id)) {
+      syncSessionParticipantsFromSources();
+    }
+
     saveState(message, 0);
     return true;
   }
@@ -1320,6 +1519,8 @@
           currentGroup.memberTypes = {};
         }
 
+        inferLegacyGroupLinkBeforeEdit(currentGroup);
+
         const ids = new Set(currentGroup.memberIds);
 
         if (event.currentTarget.checked) {
@@ -1350,11 +1551,16 @@
           }
         }
 
+        if (state.sessionGroupIds.includes(currentGroup.id)) {
+          syncSessionParticipantsFromSources();
+        }
+
         saveState('Group membership saved.', 0);
         updateGroupSummaryUi(currentGroup);
 
-        // Update session import counts/options without rebuilding this editor.
         renderSessionParticipants();
+        renderAttendance();
+        renderMatches();
       });
     });
 
@@ -1380,9 +1586,14 @@
             ? 'non-member'
             : 'regular';
 
+        if (state.sessionGroupIds.includes(currentGroup.id)) {
+          syncSessionParticipantsFromSources();
+        }
+
         saveState('Group participant status saved.', 0);
         updateGroupSummaryUi(currentGroup);
         renderSessionParticipants();
+        renderAttendance();
       });
     });
   }
@@ -1398,7 +1609,13 @@
       return;
     }
 
-    state.sessionMemberIds = [...ids, id];
+    if (!state.sessionManualMemberIds.includes(id)) {
+      state.sessionManualMemberIds = [...state.sessionManualMemberIds, id];
+    }
+
+    state.sessionExcludedMemberIds = state.sessionExcludedMemberIds.filter(
+      participantId => participantId !== id
+    );
 
     if (!state.sessionParticipantTypes || typeof state.sessionParticipantTypes !== 'object') {
       state.sessionParticipantTypes = {};
@@ -1407,7 +1624,8 @@
     state.sessionParticipantTypes[id] = 'regular';
     member.present = false;
 
-    saveState(`${member.name} added to this session.`);
+    syncSessionParticipantsFromSources();
+    saveState(`${member.name} added to this session.`, 0);
     renderAll();
   }
 
@@ -1436,7 +1654,21 @@
 
     if (!window.confirm(message)) return;
 
-    state.sessionMemberIds = getSessionMemberIds().filter(memberIdValue => memberIdValue !== id);
+    const sources = participantSources(id);
+
+    state.sessionManualMemberIds = state.sessionManualMemberIds.filter(
+      participantId => participantId !== id
+    );
+
+    if (sources.groups.length) {
+      if (!state.sessionExcludedMemberIds.includes(id)) {
+        state.sessionExcludedMemberIds = [...state.sessionExcludedMemberIds, id];
+      }
+    } else {
+      state.sessionExcludedMemberIds = state.sessionExcludedMemberIds.filter(
+        participantId => participantId !== id
+      );
+    }
 
     if (state.sessionParticipantTypes) {
       delete state.sessionParticipantTypes[id];
@@ -1444,13 +1676,9 @@
 
     member.present = false;
 
-    // Preserve completed matches as historical results; remove active/future
-    // matches that can no longer be played with this participant.
-    state.matches = state.matches.filter(match =>
-      !match.players.includes(id) || match.completed
-    );
+    syncSessionParticipantsFromSources();
 
-    saveState(`${member.name} removed from this session.`);
+    saveState(`${member.name} removed from this session.`, 0);
     renderAll();
   }
 
@@ -1535,7 +1763,7 @@
             .sort((a, b) => a.name.localeCompare(b.name))
             .map(group => `
               <option value="${esc(group.id)}">
-                ${esc(group.name)} · ${group.memberIds.length} member${group.memberIds.length === 1 ? '' : 's'}
+                ${state.sessionGroupIds.includes(group.id) ? 'Linked · ' : ''}${esc(group.name)} · ${group.memberIds.length} member${group.memberIds.length === 1 ? '' : 's'}
               </option>
             `).join('')
         : '<option value="">Create a group in Groups first</option>';
@@ -2764,6 +2992,9 @@
     });
 
     state.sessionMemberIds = [];
+    state.sessionGroupIds = [];
+    state.sessionManualMemberIds = [];
+    state.sessionExcludedMemberIds = [];
     state.sessionParticipantTypes = {};
     state.matches = state.matches.filter(match => match.completed);
 

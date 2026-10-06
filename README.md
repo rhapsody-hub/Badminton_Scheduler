@@ -605,3 +605,33 @@ Supabase Dashboard must also allow this URL under Authentication > URL Configura
 - Site URL: https://rhapsody-hub.github.io/Badminton_Scheduler/
 - Redirect URL: https://rhapsody-hub.github.io/Badminton_Scheduler/
 - Optional path wildcard: https://rhapsody-hub.github.io/Badminton_Scheduler/**
+
+
+## Generate / Reshuffle behavior fix
+
+Generate / Reshuffle now provides an explicit completion flow:
+
+- The button shows **Generating…** while working.
+- Fewer than 4 participants produces an error directly below the action buttons.
+- Runtime generation errors are displayed directly on the Session page.
+- Successful generation is saved immediately.
+- Successful generation automatically opens the **Matches** page where the new schedule is visible.
+- The success message includes generated match count and participant match-count range.
+
+The scheduling fairness/randomization algorithm itself is retained.
+
+
+## Live-linked Groups in Sessions
+
+A Session no longer treats an imported Group as a one-time copy.
+
+- Group membership changes update the current Session immediately.
+- Removing Amy from a linked Group removes Amy from the current Session.
+- Adding someone to a linked Group adds them to the current Session.
+- Group-specific Regular / Non-member changes update the Session.
+- If a person is still present through another linked Group, they remain in the Session.
+- Individually added people remain independent.
+- Removing a Group-derived person only from the Session creates a Session-only exclusion and does not edit the Group.
+- Completed matches are preserved; uncompleted matches involving a removed participant are removed.
+
+For older sessions, if the existing Session participant list exactly matches a Group before a Group edit, the app automatically recognizes that Group as the Session source.

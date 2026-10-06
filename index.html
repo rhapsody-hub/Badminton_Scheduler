@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=22" />
+  <link rel="stylesheet" href="styles.css?refresh=24" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -203,7 +203,7 @@
           <div class="session-simple-section-head">
             <div>
               <h3>Add participants</h3>
-              <p>Import one or more groups. Duplicate members are ignored automatically.</p>
+              <p>Link one or more groups. Group membership changes update this session automatically.</p>
             </div>
           </div>
 
@@ -211,7 +211,7 @@
             <div class="session-import-primary">
               <select id="session-group-select" class="input"></select>
               <button id="session-import-group" class="btn primary" type="button">
-                Import group
+                Link group
               </button>
             </div>
 
@@ -342,6 +342,13 @@
           </div>
         </div>
 
+        <div
+          id="session-generate-message"
+          class="session-generate-message"
+          role="status"
+          aria-live="polite"
+        ></div>
+
         <div id="session-summary" hidden></div>
       </div>
     </section>
@@ -459,9 +466,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=22" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=22" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=22" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=22" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=24" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=24" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=24" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=24" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>
