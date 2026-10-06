@@ -954,3 +954,17 @@ Workspace owners can select any approved coordinator and grant/revoke access ind
 After access is granted, the workspace is returned by the normal workspace list for that coordinator, so it appears after sign-in on any browser/device without requiring the join code.
 
 Only the workspace owner can grant or revoke owner-managed access. Owner access itself cannot be removed through this control.
+
+
+## Automatic workspace synchronization
+
+Cloud synchronization now has two layers:
+
+- **Immediate push:** local edits continue to save to Supabase through the existing save queue.
+- **10-second automatic refresh:** while signed in, the browser refreshes accessible workspace memberships and pulls the active workspace from Supabase every 10 seconds.
+
+Every completed cloud synchronization also refreshes the workspace list/UI, so workspace access granted or revoked from another device becomes visible without manually reloading the webpage.
+
+Supabase Realtime remains enabled, so changes from another coordinator can still arrive immediately; the 10-second poll acts as a reliability fallback.
+
+The periodic pull is skipped while a local save is queued or in progress. Failed cloud uploads are kept queued instead of discarded, preventing the periodic pull from replacing unsaved local edits with an older remote copy.

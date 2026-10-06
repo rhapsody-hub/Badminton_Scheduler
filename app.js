@@ -62,6 +62,12 @@
   let cloudSaveTimer = null;
   let cloudSavePendingSnapshot = null;
   let cloudSaveInFlight = false;
+  let cloudPeriodicSyncTimer = null;
+  let cloudPeriodicSyncInFlight = false;
+  let workspaceRefreshTimer = null;
+  let workspaceRefreshInFlight = false;
+  let workspaceRefreshPullRequested = false;
+  const CLOUD_PERIODIC_SYNC_MS = 10000;
   let pendingCloudConflictState = null;
   let pendingCloudConflictWorkspace = null;
   let historySource = 'local';
@@ -545,22 +551,30 @@
     }
 
     cloudSaveInFlight = true;
+    let snapshotBeingSaved = null;
 
     try {
       while (cloudSavePendingSnapshot) {
-        const snapshotToSave = cloudSavePendingSnapshot;
+        snapshotBeingSaved = cloudSavePendingSnapshot;
         cloudSavePendingSnapshot = null;
 
-        await window.BadmintonCloud.saveCurrentState(snapshotToSave);
+        await window.BadmintonCloud.saveCurrentState(snapshotBeingSaved);
+        snapshotBeingSaved = null;
       }
     } catch (error) {
+      // Never let the 10-second pull overwrite a local change that failed to
+      // upload. Keep the failed snapshot queued until cloud saving succeeds.
+      if (snapshotBeingSaved && !cloudSavePendingSnapshot) {
+        cloudSavePendingSnapshot = snapshotBeingSaved;
+      }
+
       setCloudUiStatus('error', error.message);
     } finally {
       cloudSaveInFlight = false;
 
       if (cloudSavePendingSnapshot) {
         clearTimeout(cloudSaveTimer);
-        cloudSaveTimer = setTimeout(flushCloudSaveQueue, 0);
+        cloudSaveTimer = setTimeout(flushCloudSaveQueue, 1500);
       }
     }
   }
@@ -670,6 +684,215 @@
     const workspaces = await window.BadmintonCloud.listWorkspaces();
     renderWorkspaceOptions(workspaces);
     return workspaces;
+  }
+
+  function cloudStatesEquivalent(remoteState) {
+    if (!remoteState) return false;
+
+    try {
+      const localComparable = {
+        ...defaultState(),
+        ...prepareIncomingState(snapshotState())
+      };
+
+      const remoteComparable = {
+        ...defaultState(),
+        ...prepareIncomingState(remoteState)
+      };
+
+      return JSON.stringify(localComparable) === JSON.stringify(remoteComparable);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function refreshWorkspaceAfterSync({
+    pullState = false,
+    sourceLabel = 'cloud sync'
+  } = {}) {
+    if (
+      workspaceRefreshInFlight ||
+      !cloudReady ||
+      !window.BadmintonCloud?.getUser()
+    ) {
+      return false;
+    }
+
+    workspaceRefreshInFlight = true;
+
+    try {
+      // Refresh memberships every time synchronization completes. This makes
+      // newly granted/revoked workspace access appear without reloading.
+      const workspaces = await refreshCloudWorkspaceList();
+      const active = window.BadmintonCloud.getActiveWorkspace();
+
+      if (!active) {
+        setCloudUiStatus(
+          'workspace',
+          workspaces.length
+            ? 'Workspace list refreshed · automatic sync every 10 seconds.'
+            : 'No accessible workspace · automatic sync every 10 seconds.'
+        );
+
+        if (!$('#coordinators')?.hidden) {
+          await renderCoordinators();
+        }
+
+        return true;
+      }
+
+      const currentWorkspace = workspaces.find(
+        workspace => workspace.id === active.id
+      );
+
+      // Access may have been revoked from another device.
+      if (!currentWorkspace) {
+        await window.BadmintonCloud.leaveActiveWorkspaceView();
+        historySource = 'local';
+
+        setStatus(
+          `Access to ${active.name || 'the active workspace'} is no longer available.`
+        );
+
+        await renderCloudUi();
+        await renderHistory();
+
+        if (!$('#coordinators')?.hidden) {
+          await renderCoordinators();
+        }
+
+        return true;
+      }
+
+      $('#cloud-workspace-name').textContent =
+        currentWorkspace.name || active.name || 'Workspace';
+
+      $('#cloud-workspace-code').textContent =
+        currentWorkspace.join_code || active.join_code || '—';
+
+      // Local edits push immediately. A periodic pull is intentionally skipped
+      // while a local cloud save is queued/in-flight to avoid stale overwrites.
+      if (
+        pullState &&
+        !cloudSaveInFlight &&
+        !cloudSavePendingSnapshot
+      ) {
+        const remoteState = await window.BadmintonCloud.loadCurrentState();
+
+        if (
+          remoteState?.members?.length &&
+          !cloudStatesEquivalent(remoteState)
+        ) {
+          const applied = applyIncomingState(remoteState, {
+            workspace: active,
+            sourceLabel
+          });
+
+          if (applied) {
+            setStatus(
+              sourceLabel === '10-second automatic sync'
+                ? `Workspace refreshed automatically from ${active.name}.`
+                : `Workspace refreshed from ${active.name}.`
+            );
+          }
+        }
+      }
+
+      setCloudUiStatus(
+        'synced',
+        `Shared across coordinators: ${active.name} · auto-sync every 10 seconds`
+      );
+
+      if (!$('#coordinators')?.hidden) {
+        await renderCoordinators();
+      }
+
+      return true;
+    } catch (error) {
+      setCloudUiStatus(
+        'error',
+        `Automatic workspace refresh failed: ${error.message}`
+      );
+      return false;
+    } finally {
+      workspaceRefreshInFlight = false;
+    }
+  }
+
+  function scheduleWorkspaceRefresh({
+    pullState = false,
+    delay = 120
+  } = {}) {
+    workspaceRefreshPullRequested =
+      workspaceRefreshPullRequested || pullState;
+
+    clearTimeout(workspaceRefreshTimer);
+
+    workspaceRefreshTimer = setTimeout(async () => {
+      const shouldPullState = workspaceRefreshPullRequested;
+      workspaceRefreshPullRequested = false;
+
+      await refreshWorkspaceAfterSync({
+        pullState: shouldPullState,
+        sourceLabel: 'synchronization refresh'
+      });
+    }, Math.max(0, delay));
+  }
+
+  async function runPeriodicWorkspaceSync() {
+    if (
+      cloudPeriodicSyncInFlight ||
+      !cloudReady ||
+      !window.BadmintonCloud?.getUser()
+    ) {
+      return;
+    }
+
+    cloudPeriodicSyncInFlight = true;
+
+    try {
+      // If there are local edits waiting to upload, give them priority.
+      if (cloudSavePendingSnapshot && !cloudSaveInFlight) {
+        await flushCloudSaveQueue();
+      }
+
+      await refreshWorkspaceAfterSync({
+        pullState: true,
+        sourceLabel: '10-second automatic sync'
+      });
+    } finally {
+      cloudPeriodicSyncInFlight = false;
+    }
+  }
+
+  function stopPeriodicWorkspaceSync() {
+    if (cloudPeriodicSyncTimer) {
+      clearInterval(cloudPeriodicSyncTimer);
+      cloudPeriodicSyncTimer = null;
+    }
+
+    clearTimeout(workspaceRefreshTimer);
+    workspaceRefreshTimer = null;
+    workspaceRefreshPullRequested = false;
+  }
+
+  function startPeriodicWorkspaceSync() {
+    stopPeriodicWorkspaceSync();
+
+    if (
+      !cloudReady ||
+      !window.BadmintonCloud?.getUser()
+    ) {
+      return;
+    }
+
+    cloudPeriodicSyncTimer = setInterval(
+      runPeriodicWorkspaceSync,
+      CLOUD_PERIODIC_SYNC_MS
+    );
+
+    // Do one immediate membership/state refresh instead of waiting 10 seconds.
+    runPeriodicWorkspaceSync();
   }
 
   function prepareIncomingState(rawState) {
@@ -929,9 +1152,23 @@
 
   async function initializeCloud() {
     if (!window.BadmintonCloud) return;
+
     window.BadmintonCloud.setSyncStatusHandler(({ status, detail }) => {
-      setCloudUiStatus(status, detail || $('#cloud-status-text')?.textContent || '');
+      setCloudUiStatus(
+        status,
+        detail || $('#cloud-status-text')?.textContent || ''
+      );
+
+      // Every completed save/load/realtime subscription refreshes workspace
+      // membership/options as well. State polling itself remains on 10 seconds.
+      if (status === 'synced') {
+        scheduleWorkspaceRefresh({
+          pullState: false,
+          delay: 150
+        });
+      }
     });
+
     window.BadmintonCloud.setRemoteStateHandler((remoteState) => {
       if (!remoteState?.members?.length) return;
 
@@ -948,7 +1185,17 @@
       }
 
       setStatus('Shared session updated by another coordinator.');
-      setCloudUiStatus('remote-update', 'A coordinator changed the shared session.');
+      setCloudUiStatus(
+        'remote-update',
+        'A coordinator changed the shared session.'
+      );
+
+      // Realtime state is applied immediately, then workspace membership/UI is
+      // refreshed so the page reflects the synchronized workspace everywhere.
+      scheduleWorkspaceRefresh({
+        pullState: false,
+        delay: 80
+      });
     });
 
     try {
@@ -973,8 +1220,15 @@
 
       await renderCloudUi();
       await renderCoordinators();
+
+      if (window.BadmintonCloud.getUser()) {
+        startPeriodicWorkspaceSync();
+      } else {
+        stopPeriodicWorkspaceSync();
+      }
     } catch (error) {
       cloudReady = false;
+      stopPeriodicWorkspaceSync();
       setCloudUiStatus('error', error.message);
     }
   }
@@ -4535,6 +4789,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       await activateCloudWorkspace(workspace, { loadState: false });
       await window.BadmintonCloud.saveCurrentState(snapshotState());
       await renderCloudUi();
+      scheduleWorkspaceRefresh({ pullState: false, delay: 0 });
       setStatus(`Workspace created: ${workspace.name}. Share join code ${workspace.join_code} with coordinators.`);
     } catch (error) { setStatus(`Could not create workspace: ${error.message}`); }
   });
@@ -4546,6 +4801,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       const workspace = await window.BadmintonCloud.joinWorkspace(code);
       await activateCloudWorkspace(workspace, { loadState: true });
       await renderCloudUi();
+      scheduleWorkspaceRefresh({ pullState: false, delay: 0 });
       setStatus(`Joined shared workspace: ${workspace.name}`);
     } catch (error) { setStatus(`Could not join workspace: ${error.message}`); }
   });
@@ -4563,8 +4819,16 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   $('#cloud-push-current').addEventListener('click', async () => {
     try {
       await window.BadmintonCloud.saveCurrentState(snapshotState());
-      setStatus('Current session synced to shared workspace.');
-    } catch (error) { setStatus(`Sync failed: ${error.message}`); }
+
+      await refreshWorkspaceAfterSync({
+        pullState: true,
+        sourceLabel: 'manual synchronization'
+      });
+
+      setStatus('Current session synced and workspace refreshed.');
+    } catch (error) {
+      setStatus(`Sync failed: ${error.message}`);
+    }
   });
 
   window.addEventListener('badminton-cloud-auth-change', async () => {
@@ -4592,6 +4856,12 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     await renderCloudUi();
     await renderCoordinators();
     await renderHistory();
+
+    if (window.BadmintonCloud.getUser()) {
+      startPeriodicWorkspaceSync();
+    } else {
+      stopPeriodicWorkspaceSync();
+    }
   });
 
   $('#generate').addEventListener('click', prepareSessionForAttendance);
