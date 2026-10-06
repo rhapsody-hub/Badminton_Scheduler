@@ -672,3 +672,15 @@ Each generation now:
 5. Generates a completely new schedule from the rebuilt participant list.
 
 Session name, date, court count, duration, rotation length, and match-mix settings are retained.
+
+
+## Add Individual dropdown fix
+
+The **Add individual** dropdown is now calculated from the linked Groups instead of from the old/current Session participant snapshot.
+
+It shows:
+
+- every participant who is not a member of any currently linked Group
+- excluding only people already added explicitly through **Add person**
+
+Older session carry-over is no longer treated as an intentional individual selection when linked Groups are present. This prevents stale participants from disappearing from the dropdown.

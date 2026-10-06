@@ -41,6 +41,7 @@
     groups: [],
     sessionMemberIds: [],
     sessionGroupIds: [],
+    sessionIndividualMemberIds: [],
     sessionManualMemberIds: [],
     sessionExcludedMemberIds: [],
     sessionParticipantTypes: {},
@@ -143,6 +144,20 @@
       ? [...new Set(state.sessionGroupIds.map(String).filter(id => validGroupIds.has(id)))]
       : [];
 
+    state.sessionIndividualMemberIds = Array.isArray(state.sessionIndividualMemberIds)
+      ? [...new Set(state.sessionIndividualMemberIds.map(Number).filter(id => validIds.has(id)))]
+      : (
+          state.sessionGroupIds.length
+            ? []
+            : (
+                Array.isArray(state.sessionManualMemberIds)
+                  ? [...new Set(state.sessionManualMemberIds.map(Number).filter(id => validIds.has(id)))]
+                  : []
+              )
+        );
+
+    // Keep the legacy field only for backward compatibility. It is no longer
+    // used as the source of individually-added participants.
     state.sessionManualMemberIds = Array.isArray(state.sessionManualMemberIds)
       ? [...new Set(state.sessionManualMemberIds.map(Number).filter(id => validIds.has(id)))]
       : [];
@@ -232,7 +247,7 @@
       .filter(group => group.memberIds.includes(id));
 
     return {
-      manual: state.sessionManualMemberIds.includes(id),
+      manual: state.sessionIndividualMemberIds.includes(id),
       groups: linkedGroups
     };
   }
@@ -243,7 +258,7 @@
     const validIds = new Set(state.members.map(participant => participant.id));
     const excluded = new Set(state.sessionExcludedMemberIds);
     const nextIds = new Set(
-      state.sessionManualMemberIds.filter(id => validIds.has(id))
+      state.sessionIndividualMemberIds.filter(id => validIds.has(id))
     );
 
     state.sessionGroupIds.forEach(groupId => {
@@ -310,6 +325,7 @@
     if (!sameIdSet(state.sessionMemberIds, group.memberIds)) return false;
 
     state.sessionGroupIds = [group.id];
+    state.sessionIndividualMemberIds = [];
     state.sessionManualMemberIds = [];
     state.sessionExcludedMemberIds = [];
     return true;
@@ -372,7 +388,7 @@
 
     if (!alreadyLinked) {
       if (sameIdSet(state.sessionMemberIds, group.memberIds)) {
-        state.sessionManualMemberIds = state.sessionManualMemberIds.filter(
+        state.sessionIndividualMemberIds = state.sessionIndividualMemberIds.filter(
           id => !group.memberIds.includes(id)
         );
       }
@@ -428,6 +444,7 @@
       })),
       sessionMemberIds: [...state.sessionMemberIds],
       sessionGroupIds: [...state.sessionGroupIds],
+      sessionIndividualMemberIds: [...state.sessionIndividualMemberIds],
       sessionManualMemberIds: [...state.sessionManualMemberIds],
       sessionExcludedMemberIds: [...state.sessionExcludedMemberIds],
       sessionParticipantTypes: { ...(state.sessionParticipantTypes || {}) },
@@ -1219,6 +1236,7 @@
         });
 
         state.sessionMemberIds = getSessionMemberIds().filter(memberId => memberId !== id);
+        state.sessionIndividualMemberIds = state.sessionIndividualMemberIds.filter(memberId => memberId !== id);
         state.sessionManualMemberIds = state.sessionManualMemberIds.filter(memberId => memberId !== id);
         state.sessionExcludedMemberIds = state.sessionExcludedMemberIds.filter(memberId => memberId !== id);
 
@@ -1640,8 +1658,8 @@
       return;
     }
 
-    if (!state.sessionManualMemberIds.includes(id)) {
-      state.sessionManualMemberIds = [...state.sessionManualMemberIds, id];
+    if (!state.sessionIndividualMemberIds.includes(id)) {
+      state.sessionIndividualMemberIds = [...state.sessionIndividualMemberIds, id];
     }
 
     state.sessionExcludedMemberIds = state.sessionExcludedMemberIds.filter(
@@ -1687,7 +1705,7 @@
 
     const sources = participantSources(id);
 
-    state.sessionManualMemberIds = state.sessionManualMemberIds.filter(
+    state.sessionIndividualMemberIds = state.sessionIndividualMemberIds.filter(
       participantId => participantId !== id
     );
 
@@ -1802,8 +1820,22 @@
 
     const individualSelect = $('#session-add-individual-select');
     if (individualSelect) {
+      const linkedGroupMemberIds = new Set();
+
+      state.sessionGroupIds.forEach(groupId => {
+        const linkedGroup = groupById(groupId);
+        linkedGroup?.memberIds.forEach(id => linkedGroupMemberIds.add(Number(id)));
+      });
+
+      const individualIds = new Set(
+        state.sessionIndividualMemberIds.map(Number)
+      );
+
       const available = state.members
-        .filter(member => !participantIds.has(member.id))
+        .filter(member =>
+          !linkedGroupMemberIds.has(member.id) &&
+          !individualIds.has(member.id)
+        )
         .sort((a, b) =>
           a.gender.localeCompare(b.gender) ||
           a.name.localeCompare(b.name)
@@ -1816,7 +1848,7 @@
               ${esc(member.name)} · ${member.gender === 'Woman' ? 'W' : 'M'} · ${esc(member.tier)}
             </option>
           `).join('')
-        : '<option value="">All directory members already added</option>';
+        : '<option value="">Everyone outside linked groups is already added</option>';
     }
 
     $$('.session-member-remove').forEach(button => {
@@ -3024,6 +3056,7 @@
 
     state.sessionMemberIds = [];
     state.sessionGroupIds = [];
+    state.sessionIndividualMemberIds = [];
     state.sessionManualMemberIds = [];
     state.sessionExcludedMemberIds = [];
     state.sessionParticipantTypes = {};

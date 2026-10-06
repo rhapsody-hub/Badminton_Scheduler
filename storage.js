@@ -117,9 +117,20 @@
       matches,
       sessionMemberIds: normalizedSessionMemberIds,
       sessionGroupIds: normalizedSessionGroupIds,
+      sessionIndividualMemberIds: Array.isArray(raw.sessionIndividualMemberIds)
+        ? [...new Set(raw.sessionIndividualMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+        : (
+            normalizedSessionGroupIds.length
+              ? []
+              : (
+                  Array.isArray(raw.sessionManualMemberIds)
+                    ? [...new Set(raw.sessionManualMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
+                    : (hasSourceTracking ? [] : [...normalizedSessionMemberIds])
+                )
+          ),
       sessionManualMemberIds: Array.isArray(raw.sessionManualMemberIds)
         ? [...new Set(raw.sessionManualMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
-        : (hasSourceTracking ? [] : [...normalizedSessionMemberIds]),
+        : [],
       sessionExcludedMemberIds: Array.isArray(raw.sessionExcludedMemberIds)
         ? [...new Set(raw.sessionExcludedMemberIds.map(Number).filter(id => validMemberIds.has(id)))]
         : [],
