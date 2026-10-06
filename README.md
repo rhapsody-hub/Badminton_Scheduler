@@ -720,3 +720,19 @@ The coordinator can then choose:
 - **Use cloud copy** — explicitly accept the smaller cloud copy.
 
 The app also stores up to 20 rolling local backups before cloud replacements/conflict decisions. This protection applies both when opening a workspace and to Realtime updates from other coordinators.
+
+
+## Optional women's skill adjustment
+
+Advanced Settings now includes **Apply women's skill adjustment (-0.25)**.
+
+When enabled, the displayed tier stays unchanged, but the scheduler uses the tier's numeric score minus 0.25 for women when balancing teams and comparing match strength. Participation fairness and match-count priority are unchanged.
+
+The option is enabled by default and saved per session.
+
+
+## Women's skill adjustment refinement
+
+The optional women's balancing modifier has been reduced from **-0.5** to **-0.25**.
+
+Displayed skill tiers remain unchanged. Only the internal balancing score is adjusted.

@@ -51,7 +51,8 @@
     courts: 3,
     duration: 180,
     rotationMin: 18,
-    mix: 'less-mixed'
+    mix: 'less-mixed',
+    womenSkillAdjustment: true
   });
 
   let state = defaultState();
@@ -74,6 +75,18 @@
 
   const memberById = (id) => state.members.find(m => m.id === Number(id));
   const memberName = (id) => memberById(id)?.name || '—';
+
+  function effectiveSkillScore(participant) {
+    if (!participant) return score['?'];
+
+    const base = score[participant.tier] ?? score['?'];
+    const adjustment =
+      state.womenSkillAdjustment && participant.gender === 'Woman'
+        ? 0.25
+        : 0;
+
+    return base - adjustment;
+  }
 
   function normalizeRuntimeMembership() {
     const validIds = new Set(state.members.map(participant => participant.id));
@@ -459,7 +472,8 @@
       courts: state.courts,
       duration: state.duration,
       rotationMin: state.rotationMin,
-      mix: state.mix
+      mix: state.mix,
+      womenSkillAdjustment: state.womenSkillAdjustment !== false
     };
   }
 
@@ -557,6 +571,11 @@
     $('#duration').value = state.duration;
     $('#rotation-min').value = state.rotationMin;
     $('#mix').value = state.mix;
+
+    const womenAdjustment = $('#women-skill-adjustment');
+    if (womenAdjustment) {
+      womenAdjustment.checked = state.womenSkillAdjustment !== false;
+    }
   }
 
   function setCloudUiStatus(status, detail = '') {
@@ -916,7 +935,7 @@
   }
 
   function pairBalanced(group) {
-    const g = [...group].sort((a,b) => score[b.tier] - score[a.tier]);
+    const g = [...group].sort((a,b) => effectiveSkillScore(b) - effectiveSkillScore(a));
     const men = g.filter(x => x.gender === 'Man');
     const women = g.filter(x => x.gender === 'Woman');
 
@@ -939,8 +958,8 @@
       ];
 
       const evaluated = pairings.map(players => {
-        const team1 = score[players[0].tier] + score[players[1].tier];
-        const team2 = score[players[2].tier] + score[players[3].tier];
+        const team1 = effectiveSkillScore(players[0]) + effectiveSkillScore(players[1]);
+        const team2 = effectiveSkillScore(players[2]) + effectiveSkillScore(players[3]);
         return {
           players,
           gap: Math.abs(team1 - team2)
@@ -1117,6 +1136,7 @@
       state.duration = Math.max(30, Math.min(720, Number($('#duration').value) || 180));
       state.rotationMin = Math.max(10, Math.min(60, Number($('#rotation-min').value) || 18));
       state.mix = $('#mix').value;
+      state.womenSkillAdjustment = $('#women-skill-adjustment')?.checked !== false;
 
       const source = getFreshSessionSource();
       const sourceCount = source.participantIds.length;
@@ -1180,7 +1200,7 @@
           if (wa !== wb) return wb - wa;
 
           // Keep broad tier composition, but don't make it deterministic.
-          const tierDiff = score[b.tier] - score[a.tier];
+          const tierDiff = effectiveSkillScore(b) - effectiveSkillScore(a);
           if (Math.abs(tierDiff) >= 2) return tierDiff;
 
           return tieMap.get(a.id) - tieMap.get(b.id);
@@ -1231,8 +1251,8 @@
             (opponentCount.get(pairKey(ids[1], ids[2])) || 0) +
             (opponentCount.get(pairKey(ids[1], ids[3])) || 0);
 
-          const team1 = score[paired[0].tier] + score[paired[1].tier];
-          const team2 = score[paired[2].tier] + score[paired[3].tier];
+          const team1 = effectiveSkillScore(paired[0]) + effectiveSkillScore(paired[1]);
+          const team2 = effectiveSkillScore(paired[2]) + effectiveSkillScore(paired[3]);
           const skillGap = Math.abs(team1 - team2);
 
           // Partner repeats matter most, then excessive opponent repeats,
@@ -2160,7 +2180,7 @@
     const a = memberById(playerA);
     const b = memberById(playerB);
     if (!a || !b) return 0;
-    return (score[a.tier] + score[b.tier]) / 2;
+    return (effectiveSkillScore(a) + effectiveSkillScore(b)) / 2;
   }
 
   function matchSkillLabel(match) {
@@ -3560,12 +3580,13 @@
     saveState('Session date saved.');
   });
 
-  ['courts','duration','rotation-min','mix'].forEach(id => {
+  ['courts','duration','rotation-min','mix','women-skill-adjustment'].forEach(id => {
     $('#' + id).addEventListener('change', () => {
       state.courts = Math.max(1, Number($('#courts').value) || 3);
       state.duration = Math.max(30, Number($('#duration').value) || 180);
       state.rotationMin = Math.max(10, Number($('#rotation-min').value) || 18);
       state.mix = $('#mix').value;
+      state.womenSkillAdjustment = $('#women-skill-adjustment')?.checked !== false;
 
       saveState('Session settings saved.');
       renderSession();

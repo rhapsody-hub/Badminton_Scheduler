@@ -163,7 +163,8 @@
       courts: Math.max(1, Math.min(12, Number(raw.courts) || 3)),
       duration: Math.max(30, Math.min(720, Number(raw.duration) || 180)),
       rotationMin: Math.max(10, Math.min(60, Number(raw.rotationMin) || 18)),
-      mix: ['balanced','less-mixed','more-mixed'].includes(raw.mix) ? raw.mix : 'less-mixed'
+      mix: ['balanced','less-mixed','more-mixed'].includes(raw.mix) ? raw.mix : 'less-mixed',
+      womenSkillAdjustment: raw.womenSkillAdjustment !== false
     };
   }
 

@@ -3687,3 +3687,43 @@ label {
     flex: 1 1 0;
   }
 }
+
+
+/* Optional women's balancing adjustment */
+.skill-adjustment-option {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 40px;
+  padding-top: 17px;
+}
+
+.skill-adjustment-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 24px;
+  font-size: 0.69rem;
+  font-weight: 800;
+}
+
+.skill-adjustment-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.skill-adjustment-option small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.56rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+@media (max-width: 600px) {
+  .skill-adjustment-option {
+    padding-top: 2px;
+  }
+}
