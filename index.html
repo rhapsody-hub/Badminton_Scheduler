@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=40" />
+  <link rel="stylesheet" href="styles.css?refresh=42" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -200,7 +200,7 @@
         <div class="section-head session-simple-head">
           <div>
             <h2>Session</h2>
-            <p>Choose the players, set the courts, then generate the matches.</p>
+            <p>Choose the invited players and session settings, then prepare attendance.</p>
           </div>
 
           <div id="session-participant-summary" class="session-participant-summary session-summary-inline"></div>
@@ -368,7 +368,7 @@
 
         <div class="session-action-bar">
           <button id="generate" class="btn primary session-generate-btn" type="button">
-            Generate fresh matches
+            Prepare session
           </button>
 
           <button id="save-session" class="btn" type="button">
@@ -402,11 +402,11 @@
       <div class="section-head match-section-head matches-simple-head">
         <div>
           <h2>Matches</h2>
-          <p>Live courts and the next playable matches.</p>
+          <p>Mark attendance first. Match generation uses only participants who are present.</p>
         </div>
 
         <div class="match-toolbar live-primary-toolbar">
-          <button id="reshuffle-matches" class="btn primary" type="button">Reshuffle matches</button>
+          <button id="reshuffle-matches" class="btn primary" type="button">Generate matches</button>
           <button id="export-excel" class="btn" type="button">Export Excel</button>
           <button id="save-session-matches" class="btn" type="button">Save Session</button>
         </div>
@@ -438,6 +438,35 @@
         </div>
       </section>
 
+      <div class="attendance-generation-strip">
+        <div>
+          <strong id="matches-attendance-count">0 attending</strong>
+          <span>Only checked-in participants are used by the scheduler.</span>
+        </div>
+        <div
+          id="matches-generation-message"
+          class="matches-generation-message"
+          role="status"
+          aria-live="polite"
+        ></div>
+      </div>
+
+      <details id="matches-attendance-details" class="matches-collapsible" open>
+        <summary>
+          <span>Attendance</span>
+          <span class="matches-summary-note">Manage who has arrived</span>
+        </summary>
+
+        <div class="matches-collapsible-body">
+          <div class="attendance-actions compact-attendance-actions">
+            <button id="clear-attendance" class="btn" type="button">Clear attendance</button>
+            <button id="all-present" class="btn" type="button">All present</button>
+          </div>
+          <div id="attendance-list" class="attendance-list attendance-list-compact"></div>
+        </div>
+      </details>
+
+      
       <div id="live-summary" class="live-summary-strip"></div>
 
       <section class="matches-live-section">
@@ -460,22 +489,7 @@
         <div id="available-matches" class="available-match-grid available-match-grid-compact"></div>
       </section>
 
-      <details class="matches-collapsible">
-        <summary>
-          <span>Attendance</span>
-          <span class="matches-summary-note">Manage who has arrived</span>
-        </summary>
-
-        <div class="matches-collapsible-body">
-          <div class="attendance-actions compact-attendance-actions">
-            <button id="clear-attendance" class="btn" type="button">Clear attendance</button>
-            <button id="all-present" class="btn" type="button">All present</button>
-          </div>
-          <div id="attendance-list" class="attendance-list attendance-list-compact"></div>
-        </div>
-      </details>
-
-      <details class="matches-collapsible">
+<details class="matches-collapsible">
         <summary>
           <span>Waiting / Blocked</span>
           <span class="matches-summary-note">Matches not playable yet</span>
@@ -502,7 +516,7 @@
       <details class="matches-collapsible planned-schedule-details">
         <summary>
           <span>Planned Schedule</span>
-          <span class="matches-summary-note">Full rotations and editing tools</span>
+          <span class="matches-summary-note">Rotation order · courts assigned automatically at start</span>
         </summary>
 
         <div class="matches-collapsible-body">
@@ -529,11 +543,9 @@
             <span class="skill-key tier-q">?</span>
           </div>
 
-          <div class="rotation-sheet-wrap">
-            <table class="rotation-sheet">
-              <thead id="match-grid-head"></thead>
-              <tbody id="match-grid-body"></tbody>
-            </table>
+          <div class="planned-rotation-wrap">
+            <div id="match-grid-head" hidden></div>
+            <div id="match-grid-body" class="planned-rotation-list"></div>
           </div>
         </div>
       </details>
@@ -675,9 +687,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=40" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=40" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=40" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=40" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

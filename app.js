@@ -444,6 +444,10 @@
     return state.members.filter(member => ids.has(member.id));
   }
 
+  function getAttendingSessionMembers() {
+    return getSessionMembers().filter(member => member.present);
+  }
+
   function isSessionMember(id) {
     return getSessionMemberIds().includes(Number(id));
   }
@@ -1011,6 +1015,14 @@
     element.className = `session-generate-message${type ? ` ${type}` : ''}`;
   }
 
+  function setMatchesGenerationMessage(message = '', type = '') {
+    const element = $('#matches-generation-message');
+    if (!element) return;
+
+    element.textContent = message;
+    element.className = `matches-generation-message${type ? ` ${type}` : ''}`;
+  }
+
   function randomValue() {
     // crypto gives a better reshuffle when available; Math.random is the fallback.
     if (window.crypto?.getRandomValues) {
@@ -1224,10 +1236,82 @@
     `;
   }
 
-  async function generateMatches({
-    preserveAttendance = false
-  } = {}) {
+  async function prepareSessionForAttendance() {
     const button = $('#generate');
+
+    try {
+      button.disabled = true;
+      button.textContent = 'Preparing…';
+
+      setGenerateMessage('Checking selected groups and individuals…', 'working');
+
+      state.sessionName = $('#session-name').value.trim().slice(0, 80);
+      state.sessionDate = $('#session-date').value || localDateValue();
+      state.courts = Math.max(1, Math.min(12, Number($('#courts').value) || 3));
+      state.duration = Math.max(30, Math.min(720, Number($('#duration').value) || 180));
+      state.rotationMin = Math.max(10, Math.min(60, Number($('#rotation-min').value) || 18));
+      state.mix = $('#mix').value;
+
+      const source = getFreshSessionSource();
+      const sourceCount = source.participantIds.length;
+
+      if (source.missingGroupIds.length) {
+        const message =
+          'Cannot prepare session: one or more linked groups no longer exist. Re-link the groups first.';
+        setStatus(message);
+        setGenerateMessage(message, 'error');
+        return;
+      }
+
+      if (sourceCount < 4) {
+        const message =
+          sourceCount === 0
+            ? 'Nothing is selected for this session. Link a group or add individuals first.'
+            : `Only ${sourceCount} invited participants selected. At least 4 are required.`;
+
+        setStatus(message);
+        setGenerateMessage(message, 'error');
+        return;
+      }
+
+      commitFreshSessionSource(source, { preserveAttendance: false });
+
+      saveState('', 0);
+      renderAll();
+
+      const message =
+        `Session prepared with ${sourceCount} invited participants. ` +
+        'Mark attendance on Matches, then generate matches from the people who are present.';
+
+      setStatus(message);
+      setGenerateMessage(message, 'success');
+      setMatchesGenerationMessage(
+        'Mark at least 4 participants as present, then press Generate matches.',
+        'info'
+      );
+
+      showPanel('matches', true);
+
+      const attendanceDetails = $('#matches-attendance-details');
+      if (attendanceDetails) attendanceDetails.open = true;
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Session preparation failed:', error);
+
+      const message =
+        `Session preparation failed: ${error?.message || String(error)}`;
+
+      setStatus(message);
+      setGenerateMessage(message, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Prepare session';
+    }
+  }
+
+  async function generateMatches() {
+    const button = $('#reshuffle-matches');
 
     try {
       if (button) {
@@ -1235,7 +1319,10 @@
         button.textContent = 'Generating…';
       }
 
-      setGenerateMessage('Checking selected groups and individuals…', 'working');
+      setMatchesGenerationMessage(
+        'Checking attendance and building the schedule…',
+        'working'
+      );
 
       state.sessionName = $('#session-name').value.trim().slice(0, 80);
       state.sessionDate = $('#session-date').value || localDateValue();
@@ -1257,43 +1344,43 @@
 
       state.womenSkillAdjustment = state.womenSkillAdjustmentValue > 0;
 
-      const source = getFreshSessionSource();
-      const sourceCount = source.participantIds.length;
+      const sessionParticipants = getSessionMembers();
 
-      // Critical: do not destroy the old session until the new source is valid.
-      if (source.missingGroupIds.length) {
+      if (sessionParticipants.length < 4) {
         const message =
-          'Cannot generate: one or more linked groups no longer exist. Re-link the groups on the Session page.';
+          'At least 4 invited session participants are required before matches can be generated.';
         setStatus(message);
-        setGenerateMessage(message, 'error');
+        setMatchesGenerationMessage(message, 'error');
         return;
       }
 
-      if (sourceCount < 4) {
-        let message;
+      const participants = getAttendingSessionMembers();
+      const participantCount = participants.length;
 
-        if (!source.linkedGroups.length && !source.individualParticipantIds.length) {
-          message =
-            'Nothing is selected for this session. Link at least one group or add individuals first.';
-        } else {
-          message =
-            `Only ${sourceCount} participant${sourceCount === 1 ? '' : 's'} selected. At least 4 are required to generate matches.`;
-        }
+      if (participantCount < 4) {
+        const message =
+          participantCount === 0
+            ? 'No participants are marked present. Check attendance first.'
+            : `Only ${participantCount} participant${participantCount === 1 ? '' : 's'} marked present. At least 4 attendees are required.`;
 
         setStatus(message);
-        setGenerateMessage(message, 'error');
+        setMatchesGenerationMessage(message, 'error');
+
+        const attendanceDetails = $('#matches-attendance-details');
+        if (attendanceDetails) attendanceDetails.open = true;
+
         return;
       }
 
-      setGenerateMessage(
-        `Building a fresh schedule for ${sourceCount} participants…`,
+      setMatchesGenerationMessage(
+        `Building the schedule from ${participantCount} attending participants…`,
         'working'
       );
 
-      const participants = commitFreshSessionSource(source, {
-        preserveAttendance
-      });
-      const participantCount = participants.length;
+      // Attendance is the generator pool. The invited session participant list
+      // remains intact and attendance itself is never reset by generation.
+      state.matches = [];
+
       const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
       const slotsPerRound = state.courts * 4;
 
@@ -1451,9 +1538,9 @@
 
       if (!matches.length) {
         const message =
-          'No matches could be generated from the current participants and settings.';
+          'No matches could be generated from the current attendees and settings.';
         setStatus(message);
-        setGenerateMessage(message, 'error');
+        setMatchesGenerationMessage(message, 'error');
         return;
       }
 
@@ -1467,11 +1554,11 @@
       const maxMatches = Math.max(...counts);
 
       const message =
-        `Generated ${matches.length} fresh matches for ${participantCount} participants. ` +
+        `Generated ${matches.length} matches for ${participantCount} attending participants. ` +
         `Participation range: ${minMatches}–${maxMatches} matches.`;
 
       setStatus(message);
-      setGenerateMessage(message, 'success');
+      setMatchesGenerationMessage(message, 'success');
 
       showPanel('matches', true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1482,11 +1569,13 @@
       const message = `Match generation failed: ${detail}`;
 
       setStatus(message);
-      setGenerateMessage(message, 'error');
+      setMatchesGenerationMessage(message, 'error');
     } finally {
       if (button) {
         button.disabled = false;
-        button.textContent = 'Generate fresh matches';
+        button.textContent = state.matches.length
+          ? 'Reshuffle matches'
+          : 'Generate matches';
       }
     }
   }
@@ -2267,9 +2356,11 @@
   }
 
   function playerOptionMembers(selected) {
-    const participants = getSessionMembers();
+    const participants = getAttendingSessionMembers();
     const selectedMember = memberById(selected);
 
+    // Keep the currently assigned player visible even if attendance changed
+    // after this schedule was generated, but do not offer other absent players.
     if (
       selectedMember &&
       !participants.some(member => member.id === selectedMember.id)
@@ -2415,6 +2506,21 @@
     renderAll();
   }
 
+  function plannedMatchNumber(match) {
+    if (!match) return 1;
+
+    const rotationMatches = state.matches
+      .filter(item => Number(item.round) === Number(match.round))
+      .slice()
+      .sort((a, b) =>
+        (Number(a.court) || 0) - (Number(b.court) || 0) ||
+        String(a.id).localeCompare(String(b.id))
+      );
+
+    const index = rotationMatches.findIndex(item => item.id === match.id);
+    return index >= 0 ? index + 1 : 1;
+  }
+
   function changeMatchPlayerWithSwap(matchId, slot, newPlayerId) {
     const match = state.matches.find(item => item.id === matchId);
     const slotNo = Number(slot);
@@ -2457,7 +2563,7 @@
 
     if (swapCandidates.length) {
       const lines = swapCandidates.map((candidate, index) =>
-        `${index + 1}. R${candidate.round} · Court ${candidate.court} · ${matchType(candidate.players)}`
+        `${index + 1}. R${candidate.round} · Match ${plannedMatchNumber(candidate)} · ${matchType(candidate.players)}`
       );
 
       const answer = window.prompt(
@@ -2788,162 +2894,211 @@
   function renderMatches() {
     syncWomenSkillAdjustmentControls();
 
-    const head = $('#match-grid-head');
+    const attendingCount = getAttendingSessionMembers().length;
+    const attendanceCount = $('#matches-attendance-count');
+
+    if (attendanceCount) {
+      attendanceCount.textContent =
+        `${attendingCount} attending participant${attendingCount === 1 ? '' : 's'}`;
+    }
+
+    const generateButton = $('#reshuffle-matches');
+    if (generateButton && !generateButton.disabled) {
+      generateButton.textContent =
+        state.matches.length ? 'Reshuffle matches' : 'Generate matches';
+    }
+
     const body = $('#match-grid-body');
     const hideCompleted = Boolean($('#hide-completed')?.checked);
 
-    if (!head || !body) return;
-
-    const courtCount = Math.max(
-      state.courts || 1,
-      ...state.matches.map(match => Number(match.court) || 1)
-    );
-
-    head.innerHTML = `
-      <tr>
-        <th class="rotation-col">Rot.</th>
-        ${Array.from({ length: courtCount }, (_, i) => `<th>Court ${i + 1}</th>`).join('')}
-      </tr>
-    `;
+    if (!body) return;
 
     if (!state.matches.length) {
-      body.innerHTML = `<tr><td class="rotation-sheet-empty" colspan="${courtCount + 1}">No matches yet. Generate them from Session.</td></tr>`;
+      body.innerHTML = `
+        <div class="planned-schedule-empty">
+          No matches yet. Mark attendance, then generate matches.
+        </div>
+      `;
       return;
     }
 
     const grouped = [...state.matches]
-      .sort((a, b) => a.round - b.round || a.court - b.court)
+      .sort((a, b) =>
+        a.round - b.round ||
+        (Number(a.court) || 0) - (Number(b.court) || 0) ||
+        String(a.id).localeCompare(String(b.id))
+      )
       .reduce((map, match) => {
         if (!map.has(match.round)) map.set(match.round, []);
         map.get(match.round).push(match);
         return map;
       }, new Map());
 
-    const rows = [];
+    const rotations = [];
 
-    for (const [round, matches] of grouped.entries()) {
-      const allCompleted = matches.length > 0 && matches.every(match => match.completed);
-      if (hideCompleted && allCompleted) continue;
+    for (const [round, roundMatches] of grouped.entries()) {
+      const visibleMatches = hideCompleted
+        ? roundMatches.filter(match => !match.completed)
+        : roundMatches;
 
-      const byCourt = new Map(matches.map(match => [Number(match.court), match]));
+      if (!visibleMatches.length) continue;
 
-      const courtCells = Array.from({ length: courtCount }, (_, index) => {
-        const courtNo = index + 1;
-        const match = byCourt.get(courtNo);
+      const allCompleted =
+        roundMatches.length > 0 &&
+        roundMatches.every(match => match.completed);
 
-        if (!match || (hideCompleted && match.completed)) {
-          return `
-            <td class="court-grid-cell">
-              <div class="empty-court">${match?.completed ? 'Completed' : 'No match'}</div>
-            </td>
-          `;
-        }
+      const startMin = Math.max(
+        0,
+        Number(roundMatches[0]?.start) || ((Number(round) - 1) * state.rotationMin)
+      );
 
+      const endMin = Math.max(
+        startMin,
+        Number(roundMatches[0]?.end) || (Number(round) * state.rotationMin)
+      );
+
+      const cards = visibleMatches.map((match, index) => {
         const duplicate = new Set(match.players.map(Number)).size < 4;
-        const status = match.completed ? 'Completed' : (match.playing ? 'Playing' : 'Available');
-        const statusClass = match.completed ? 'status-completed' : (match.playing ? 'status-playing' : 'status-available');
+
+        const status = match.completed
+          ? 'Completed'
+          : (match.playing ? `Playing · Court ${match.court}` : 'Available');
+
+        const statusClass = match.completed
+          ? 'status-completed'
+          : (match.playing ? 'status-playing' : 'status-available');
+
         const locked = match.playing || match.completed;
+        const matchNo = plannedMatchNumber(match);
 
         return `
-          <td
-            class="court-grid-cell ${match.completed ? 'done' : ''} ${match.playing ? 'playing' : ''} ${!match.confirmed ? 'unconfirmed' : ''} ${duplicate ? 'duplicate' : ''}"
+          <article
+            class="planned-match-card ${match.completed ? 'done' : ''} ${match.playing ? 'playing' : ''} ${!match.confirmed ? 'unconfirmed' : ''} ${duplicate ? 'duplicate' : ''}"
             data-match="${esc(match.id)}"
           >
-            <div class="court-cell-head">
-              <div class="court-name-line">
-                <select class="grid-court-select" ${locked ? 'disabled' : ''} aria-label="Court assignment">
-                  ${courtOptions(match.court)}
-                </select>
+            <div class="planned-match-head">
+              <div class="planned-match-identity">
+                <strong>Match ${matchNo}</strong>
                 <span class="match-status-badge ${statusClass}">${status}</span>
               </div>
 
-              <label class="court-flag" title="Confirmed">
-                <input class="confirm-match" type="checkbox" ${match.confirmed ? 'checked' : ''} ${locked ? 'disabled' : ''} />
-                C
+              <label class="planned-confirm" title="Confirmed">
+                <input
+                  class="confirm-match"
+                  type="checkbox"
+                  ${match.confirmed ? 'checked' : ''}
+                  ${locked ? 'disabled' : ''}
+                />
+                <span>Confirmed</span>
               </label>
             </div>
 
-            <div class="court-teams-grid">
-              <div class="court-team">
+            <div class="planned-team-row">
+              <span class="planned-team-label">Team A</span>
+              <div class="planned-team-players">
                 <select
                   class="grid-player player-select ${selectedTierClass(match.players[0])}"
                   data-slot="0"
                   ${locked ? 'disabled' : ''}
-                  aria-label="R${round}, Team 1 player 1"
+                  aria-label="R${round}, Match ${matchNo}, Team A player 1"
                 >${playerNameOptions(match.players[0])}</select>
 
                 <select
                   class="grid-player player-select ${selectedTierClass(match.players[1])}"
                   data-slot="1"
                   ${locked ? 'disabled' : ''}
-                  aria-label="R${round}, Team 1 player 2"
+                  aria-label="R${round}, Match ${matchNo}, Team A player 2"
                 >${playerNameOptions(match.players[1])}</select>
               </div>
+            </div>
 
-              <div class="court-vs">VS</div>
+            <div class="planned-vs">VS</div>
 
-              <div class="court-team">
+            <div class="planned-team-row">
+              <span class="planned-team-label">Team B</span>
+              <div class="planned-team-players">
                 <select
                   class="grid-player player-select ${selectedTierClass(match.players[2])}"
                   data-slot="2"
                   ${locked ? 'disabled' : ''}
-                  aria-label="R${round}, Team 2 player 1"
+                  aria-label="R${round}, Match ${matchNo}, Team B player 1"
                 >${playerNameOptions(match.players[2])}</select>
 
                 <select
                   class="grid-player player-select ${selectedTierClass(match.players[3])}"
                   data-slot="3"
                   ${locked ? 'disabled' : ''}
-                  aria-label="R${round}, Team 2 player 2"
+                  aria-label="R${round}, Match ${matchNo}, Team B player 2"
                 >${playerNameOptions(match.players[3])}</select>
               </div>
             </div>
 
-            <div class="court-foot">
-              <span>${matchType(match.players)} · ${matchSkillLabel(match)}</span>
-              ${duplicate ? '<span class="court-warning">Duplicate</span>' : ''}
+            <div class="planned-match-foot">
+              <span>${matchType(match.players)}</span>
+              <span>${matchSkillLabel(match)}</span>
+              ${duplicate ? '<span class="planned-warning">Duplicate player</span>' : ''}
             </div>
-          </td>
+          </article>
         `;
       }).join('');
 
-      rows.push(`
-        <tr class="${allCompleted ? 'completed-rotation' : ''}">
-          <td class="rotation-meta-cell rotation-number-cell">${round}</td>
-          ${courtCells}
-        </tr>
+      rotations.push(`
+        <section class="planned-rotation ${allCompleted ? 'completed-rotation' : ''}">
+          <div class="planned-rotation-head">
+            <div>
+              <strong>Rotation ${round}</strong>
+              <span>${fmtTime(startMin)}–${fmtTime(endMin)}</span>
+            </div>
+
+            <span class="planned-rotation-count">
+              ${visibleMatches.length} match${visibleMatches.length === 1 ? '' : 'es'}
+            </span>
+          </div>
+
+          <div class="planned-match-grid">
+            ${cards}
+          </div>
+        </section>
       `);
     }
 
-    body.innerHTML = rows.length
-      ? rows.join('')
-      : `<tr><td class="rotation-sheet-empty" colspan="${courtCount + 1}">All matches are completed.</td></tr>`;
+    body.innerHTML = rotations.length
+      ? rotations.join('')
+      : `
+        <div class="planned-schedule-empty">
+          All matches are completed.
+        </div>
+      `;
 
-    $$('.player-select').forEach(select => select.addEventListener('change', event => {
-      const cell = event.target.closest('[data-match]');
-      changeMatchPlayerWithSwap(
-        cell.dataset.match,
-        event.target.dataset.slot,
-        event.target.value
-      );
-    }));
+    $$('.player-select').forEach(select => {
+      select.addEventListener('change', event => {
+        const card = event.target.closest('[data-match]');
 
-    $$('.grid-court-select').forEach(select => select.addEventListener('change', event => {
-      const cell = event.target.closest('[data-match]');
-      changeMatchCourt(cell.dataset.match, event.target.value);
-    }));
+        changeMatchPlayerWithSwap(
+          card.dataset.match,
+          event.target.dataset.slot,
+          event.target.value
+        );
+      });
+    });
 
-    $$('.confirm-match').forEach(input => input.addEventListener('change', event => {
-      const cell = event.target.closest('[data-match]');
-      const match = state.matches.find(item => item.id === cell.dataset.match);
-      if (!match || match.playing || match.completed) {
+    $$('.confirm-match').forEach(input => {
+      input.addEventListener('change', event => {
+        const card = event.target.closest('[data-match]');
+        const match = state.matches.find(
+          item => item.id === card.dataset.match
+        );
+
+        if (!match || match.playing || match.completed) {
+          renderAll();
+          return;
+        }
+
+        match.confirmed = event.target.checked;
+        saveState('Match confirmation saved.');
         renderAll();
-        return;
-      }
-      match.confirmed = event.target.checked;
-      saveState('Match confirmation saved.');
-      renderAll();
-    }));
+      });
+    });
   }
 
   function renderSession() {
@@ -3002,7 +3157,23 @@
       }
 
       member.present = event.target.checked;
-      saveState();
+
+      const attendeeCount = getAttendingSessionMembers().length;
+      const hadSchedule = state.matches.length > 0;
+
+      saveState(
+        hadSchedule
+          ? `Attendance updated: ${attendeeCount} present. Reshuffle matches to rebuild the schedule from current attendees.`
+          : `Attendance updated: ${attendeeCount} present.`
+      );
+
+      if (hadSchedule) {
+        setMatchesGenerationMessage(
+          `Attendance changed. Press Reshuffle matches to rebuild from the ${attendeeCount} people currently present.`,
+          'warning'
+        );
+      }
+
       renderAll();
     }));
 
@@ -4037,10 +4208,10 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     await renderHistory();
   });
 
-  $('#generate').addEventListener('click', generateMatches);
+  $('#generate').addEventListener('click', prepareSessionForAttendance);
 
   $('#reshuffle-matches').addEventListener('click', async () => {
-    await generateMatches({ preserveAttendance: true });
+    await generateMatches();
   });
 
   $$('input[name="women-skill-adjustment"]').forEach(input => {
@@ -4058,7 +4229,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         0
       );
 
-      await generateMatches({ preserveAttendance: true });
+      await generateMatches();
     });
   });
 
@@ -4111,17 +4282,43 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       }
     });
 
+    const attendeeCount = getAttendingSessionMembers().length;
+
     saveState(
       playingIds.size
-        ? 'Attendance cleared for waiting players. Players currently playing were kept present.'
-        : 'Attendance cleared and saved.'
+        ? `Attendance cleared for waiting players. ${attendeeCount} currently playing participants were kept present.`
+        : 'Attendance cleared. Generate matches after checking in at least 4 participants.'
     );
+
+    setMatchesGenerationMessage(
+      playingIds.size
+        ? 'Attendance changed. Reshuffle matches when you want a new future schedule.'
+        : 'No attendees selected. Check attendance before generating matches.',
+      playingIds.size ? 'warning' : 'info'
+    );
+
     renderAll();
   });
 
   $('#all-present').addEventListener('click', () => {
     getSessionMembers().forEach(m => m.present = true);
-    saveState('Attendance saved.');
+
+    const attendeeCount = getAttendingSessionMembers().length;
+    const hadSchedule = state.matches.length > 0;
+
+    saveState(
+      hadSchedule
+        ? `All ${attendeeCount} session participants marked present. Reshuffle matches to use the updated attendance.`
+        : `All ${attendeeCount} session participants marked present.`
+    );
+
+    if (hadSchedule) {
+      setMatchesGenerationMessage(
+        `Attendance changed. Press Reshuffle matches to rebuild from all ${attendeeCount} attendees.`,
+        'warning'
+      );
+    }
+
     renderAll();
   });
 
@@ -4190,7 +4387,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     setStatus('Local session cache restored. Cloud will replace it when a shared workspace is opened.');
   } else {
     saveState();
-    setStatus('Default member list loaded. Generate a schedule only when you explicitly press Generate / Reshuffle.');
+    setStatus('Default member list loaded. Prepare a session, mark attendance, then generate matches from attendees.');
   }
 
   initializeCloud();

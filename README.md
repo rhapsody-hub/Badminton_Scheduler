@@ -870,3 +870,39 @@ Attendance is now preserved when:
 - the women's skill adjustment radio option is changed and the schedule auto-reshuffles
 
 The Session page's **Generate fresh matches** behavior remains separate and can still initialize a fresh session attendance state.
+
+
+## Attendance-driven match generation
+
+The match-generation workflow now separates **invited session participants** from **actual attendees**.
+
+1. On **Session**, choose linked groups/individuals and session settings.
+2. Press **Prepare session**. This establishes the invited participant pool, clears the previous schedule/progress, resets attendance for the fresh session, and opens Matches.
+3. On **Matches**, mark the people who actually arrived.
+4. Press **Generate matches**.
+5. The existing scheduler runs using only those present attendees.
+
+All existing scheduling rules remain in force: participation fairness, waiting priority, court capacity, duration/rotation count, gender/match mix, partner-repeat penalty, opponent-repeat penalty, skill-gap balancing, random tie-breaking, and the selected women's skill adjustment.
+
+Attendance is never cleared by Generate/Reshuffle on the Matches page.
+
+Changing attendance after a schedule already exists does not silently destroy match progress. The UI warns that the schedule should be reshuffled. Manual player replacement dropdowns offer attending participants only (while retaining the currently assigned player if attendance changed after generation).
+
+
+## Simplified planned schedule
+
+The Planned Schedule no longer presents generated matches as fixed Court 1 / Court 2 / Court 3 / Court 4 assignments.
+
+Each rotation is now displayed as a readable group of **Match 1, Match 2, ...** cards. Each card contains:
+
+- Team A
+- Team B
+- editable attendee/player selections
+- match type
+- skill/balance label
+- available / playing / completed status
+- confirmation control
+
+Physical court assignment is intentionally absent from the planned view. A match receives an actual free court only when **Start match** is pressed.
+
+The generator may still retain an internal per-rotation slot number for ordering and backward compatibility, but that value is not presented as a planned physical court.
