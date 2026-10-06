@@ -841,3 +841,10 @@ The old password-less coordinator-add RPC is disabled for normal authenticated b
 The password tool now includes a coordinator selector. A signed-in coordinator can change any approved coordinator's password only when the selected coordinator's valid current password is supplied.
 
 Verification uses a separate, non-persistent Supabase client so checking the other coordinator's credentials does not replace the main signed-in coordinator session.
+
+
+## Coordinator form readability
+
+The coordinator password target dropdown now uses a taller control with horizontal-only select padding and an explicit readable font/line-height. This prevents selected email text from being vertically clipped.
+
+Coordinator credential text fields were also normalized to use fixed-height controls without oversized inherited vertical padding.

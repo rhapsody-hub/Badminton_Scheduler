@@ -4264,3 +4264,48 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* =========================================================
+   Coordinator selector readability
+   ========================================================= */
+
+#coordinator-password-email {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  margin-top: 5px;
+  padding: 0 38px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#coordinator-password-email option {
+  color: var(--text);
+  background: var(--panel);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#coordinator-password-email:focus {
+  outline: 2px solid rgba(49, 95, 158, 0.22);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* Avoid the same clipping pattern on coordinator credential fields. */
+.coordinator-add-row .input,
+.coordinator-password-fields .input {
+  min-height: 42px;
+  height: 42px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.25;
+}
