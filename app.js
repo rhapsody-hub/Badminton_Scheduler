@@ -60,6 +60,8 @@
   let cloudSaveTimer = null;
   let cloudSavePendingSnapshot = null;
   let cloudSaveInFlight = false;
+  let pendingCloudConflictState = null;
+  let pendingCloudConflictWorkspace = null;
   let historySource = 'local';
   let selectedGroupId = null;
 
@@ -562,7 +564,7 @@
     const text = $('#cloud-status-text');
     if (!badge || !text) return;
     badge.className = `cloud-sync-badge ${status}`;
-    const labels = { offline: 'Local only', signedout: 'Sign in required', workspace: 'Choose workspace', saving: 'Saving…', loading: 'Loading…', synced: 'Synced', 'remote-update': 'Updated by coordinator', error: 'Sync error' };
+    const labels = { offline: 'Local only', signedout: 'Sign in required', workspace: 'Choose workspace', saving: 'Saving…', loading: 'Loading…', synced: 'Synced', 'remote-update': 'Updated by coordinator', conflict: 'Sync conflict', error: 'Sync error' };
     badge.textContent = labels[status] || status;
     if (detail) text.textContent = detail;
   }
@@ -627,6 +629,123 @@
     return incoming;
   }
 
+  function stateDataMetrics(candidate) {
+    const value = candidate || {};
+    const participants = Array.isArray(value.members) ? value.members.length : 0;
+    const groups = Array.isArray(value.groups) ? value.groups.length : 0;
+    const groupAssignments = Array.isArray(value.groups)
+      ? value.groups.reduce(
+          (sum, group) =>
+            sum + (Array.isArray(group?.memberIds) ? group.memberIds.length : 0),
+          0
+        )
+      : 0;
+
+    return {
+      participants,
+      groups,
+      groupAssignments,
+      sessionParticipants: Array.isArray(value.sessionMemberIds)
+        ? value.sessionMemberIds.length
+        : 0
+    };
+  }
+
+  function stateProtectionScore(candidate) {
+    const metrics = stateDataMetrics(candidate);
+
+    // Participant directory and reusable Groups matter much more than the
+    // transient current-session list when deciding whether an incoming cloud
+    // copy is suspiciously incomplete.
+    return (
+      metrics.participants * 10000 +
+      metrics.groups * 1000 +
+      metrics.groupAssignments * 10 +
+      metrics.sessionParticipants
+    );
+  }
+
+  function incomingStateLooksPoorer(localState, incomingState) {
+    if (!localState?.members?.length || !incomingState?.members?.length) {
+      return false;
+    }
+
+    const local = stateDataMetrics(localState);
+    const incoming = stateDataMetrics(incomingState);
+
+    return (
+      incoming.participants < local.participants ||
+      incoming.groups < local.groups ||
+      incoming.groupAssignments < local.groupAssignments
+    );
+  }
+
+  function hideCloudConflict() {
+    pendingCloudConflictState = null;
+    pendingCloudConflictWorkspace = null;
+    showCloudElement('cloud-conflict', false);
+
+    const text = $('#cloud-conflict-text');
+    if (text) text.textContent = '';
+  }
+
+  function showCloudConflict(localState, incomingState, workspace = null) {
+    pendingCloudConflictState = JSON.parse(JSON.stringify(incomingState));
+    pendingCloudConflictWorkspace = workspace || window.BadmintonCloud?.getActiveWorkspace() || null;
+
+    const local = stateDataMetrics(localState);
+    const remote = stateDataMetrics(incomingState);
+
+    const text = $('#cloud-conflict-text');
+    if (text) {
+      text.textContent =
+        `Local: ${local.participants} participants, ${local.groups} groups, ${local.groupAssignments} group assignments. ` +
+        `Cloud: ${remote.participants} participants, ${remote.groups} groups, ${remote.groupAssignments} group assignments. ` +
+        `Nothing was overwritten.`;
+    }
+
+    showCloudElement('cloud-conflict', true);
+    setCloudUiStatus(
+      'conflict',
+      'Cloud has less participant/group data than this device. Choose which copy to keep.'
+    );
+  }
+
+  function applyIncomingState(incomingState, {
+    workspace = null,
+    force = false,
+    sourceLabel = 'cloud'
+  } = {}) {
+    if (!incomingState?.members?.length) return false;
+
+    const prepared = prepareIncomingState(incomingState);
+    const localSnapshot = snapshotState();
+
+    if (!force && incomingStateLooksPoorer(localSnapshot, prepared)) {
+      window.BadmintonStorage?.saveBackup(
+        localSnapshot,
+        `Protected local copy before rejecting poorer ${sourceLabel} state`
+      );
+      showCloudConflict(localSnapshot, prepared, workspace);
+      return false;
+    }
+
+    window.BadmintonStorage?.saveBackup(
+      localSnapshot,
+      `Before applying ${sourceLabel} state`
+    );
+
+    applyingRemoteState = true;
+    state = { ...defaultState(), ...prepared };
+    applyingRemoteState = false;
+
+    syncSessionInputs();
+    window.BadmintonStorage?.save(snapshotState());
+    hideCloudConflict();
+    renderAll();
+    return true;
+  }
+
   async function activateCloudWorkspace(workspace, { loadState = true } = {}) {
     if (!workspace) return;
     historySource = 'cloud';
@@ -639,13 +758,18 @@
     if (loadState) {
       const remoteState = await window.BadmintonCloud.loadCurrentState();
       if (remoteState?.members?.length) {
-        applyingRemoteState = true;
-        state = { ...defaultState(), ...prepareIncomingState(remoteState) };
-        applyingRemoteState = false;
-        syncSessionInputs();
-        window.BadmintonStorage?.save(snapshotState());
-        renderAll();
-        setStatus(`Shared workspace loaded: ${workspace.name}`);
+        const applied = applyIncomingState(remoteState, {
+          workspace,
+          sourceLabel: 'workspace'
+        });
+
+        if (applied) {
+          setStatus(`Shared workspace loaded: ${workspace.name}`);
+        } else {
+          setStatus(
+            'Cloud copy was not loaded because it contains less participant/group data than this device.'
+          );
+        }
       } else {
         await window.BadmintonCloud.saveCurrentState(snapshotState());
         setStatus(`Shared workspace initialized: ${workspace.name}`);
@@ -699,12 +823,19 @@
     });
     window.BadmintonCloud.setRemoteStateHandler((remoteState) => {
       if (!remoteState?.members?.length) return;
-      applyingRemoteState = true;
-      state = { ...defaultState(), ...prepareIncomingState(remoteState) };
-      applyingRemoteState = false;
-      syncSessionInputs();
-      window.BadmintonStorage?.save(snapshotState());
-      renderAll();
+
+      const applied = applyIncomingState(remoteState, {
+        workspace: window.BadmintonCloud?.getActiveWorkspace() || null,
+        sourceLabel: 'realtime cloud'
+      });
+
+      if (!applied) {
+        setStatus(
+          'A cloud update was blocked because it would remove participant/group data from this device.'
+        );
+        return;
+      }
+
       setStatus('Shared session updated by another coordinator.');
       setCloudUiStatus('remote-update', 'A coordinator changed the shared session.');
     });
@@ -3200,6 +3331,44 @@
 
     saveState('All participants removed from the current session.');
     renderAll();
+  });
+
+  $('#cloud-keep-local').addEventListener('click', async () => {
+    try {
+      const localSnapshot = snapshotState();
+
+      window.BadmintonStorage?.saveBackup(
+        localSnapshot,
+        'Local copy chosen during cloud conflict'
+      );
+
+      await window.BadmintonCloud.saveCurrentState(localSnapshot);
+      hideCloudConflict();
+
+      setStatus('Local participant/group data uploaded to the shared workspace.');
+      setCloudUiStatus('synced', 'Local copy is now the shared cloud copy.');
+    } catch (error) {
+      setStatus(`Could not upload local copy: ${error.message}`);
+      setCloudUiStatus('error', error.message);
+    }
+  });
+
+  $('#cloud-use-remote').addEventListener('click', () => {
+    if (!pendingCloudConflictState) return;
+
+    const remote = JSON.parse(JSON.stringify(pendingCloudConflictState));
+    const workspace = pendingCloudConflictWorkspace;
+
+    const applied = applyIncomingState(remote, {
+      workspace,
+      force: true,
+      sourceLabel: 'cloud copy selected manually'
+    });
+
+    if (applied) {
+      setStatus('Cloud copy selected. The previous local copy was saved as a local backup.');
+      setCloudUiStatus('synced', 'Cloud copy selected.');
+    }
   });
 
   $('#cloud-signin').addEventListener('click', async () => {

@@ -3625,3 +3625,65 @@ label {
 .session-source-summary strong {
   color: var(--text);
 }
+
+
+/* =========================================================
+   Cloud conflict protection
+   ========================================================= */
+
+.cloud-conflict {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border: 1px solid #e8bcbc;
+  border-radius: 9px;
+  background: #fff7f7;
+}
+
+.cloud-conflict > div:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cloud-conflict strong {
+  color: #9a2e2e;
+  font-size: 0.72rem;
+}
+
+.cloud-conflict span {
+  color: #6d5555;
+  font-size: 0.62rem;
+  line-height: 1.35;
+}
+
+.cloud-conflict-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.cloud-conflict-actions .btn {
+  min-height: 32px;
+  padding: 0.35rem 0.58rem;
+  font-size: 0.62rem;
+}
+
+@media (max-width: 720px) {
+  .cloud-conflict {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cloud-conflict-actions {
+    width: 100%;
+  }
+
+  .cloud-conflict-actions .btn {
+    flex: 1 1 0;
+  }
+}

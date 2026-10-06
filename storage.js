@@ -1,6 +1,7 @@
 (() => {
   const STORAGE_KEY = 'badmintonSessionManagerState';
   const HISTORY_KEY = 'badmintonSessionManagerHistory';
+  const BACKUP_KEY = 'badmintonSessionManagerBackups';
   const STORAGE_VERSION = 1;
   const HISTORY_VERSION = 1;
 
@@ -208,6 +209,53 @@
     }
   }
 
+  function loadBackups() {
+    if (!isAvailable()) return [];
+
+    try {
+      const raw = localStorage.getItem(BACKUP_KEY);
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .filter(item => item && item.savedAt && item.state)
+        .map(item => ({
+          id: String(item.id || item.savedAt),
+          savedAt: String(item.savedAt),
+          reason: String(item.reason || 'Automatic backup'),
+          state: normalizeState(item.state)
+        }))
+        .filter(item => item.state)
+        .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    } catch (error) {
+      console.warn('Could not load badminton backups:', error);
+      return [];
+    }
+  }
+
+  function saveBackup(state, reason = 'Automatic backup') {
+    if (!isAvailable() || !state) return false;
+
+    try {
+      const existing = loadBackups();
+      const record = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+        savedAt: new Date().toISOString(),
+        reason: String(reason || 'Automatic backup').slice(0, 120),
+        state: JSON.parse(JSON.stringify(state))
+      };
+
+      const next = [record, ...existing].slice(0, 20);
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(next));
+      return true;
+    } catch (error) {
+      console.warn('Could not save badminton backup:', error);
+      return false;
+    }
+  }
+
   function clear() {
     if (!isAvailable()) return false;
 
@@ -310,11 +358,14 @@
   window.BadmintonStorage = {
     key: STORAGE_KEY,
     historyKey: HISTORY_KEY,
+    backupKey: BACKUP_KEY,
     version: STORAGE_VERSION,
     historyVersion: HISTORY_VERSION,
     isAvailable,
     load,
     save,
+    saveBackup,
+    loadBackups,
     clear,
     loadHistory,
     saveHistorySession,

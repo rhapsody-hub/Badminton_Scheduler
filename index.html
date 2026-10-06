@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=28" />
+  <link rel="stylesheet" href="styles.css?refresh=29" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -49,6 +49,16 @@
         <div id="cloud-active-workspace" class="cloud-active-workspace" hidden>
           <div>Workspace: <strong id="cloud-workspace-name"></strong><span class="cloud-code-wrap">Join code: <code id="cloud-workspace-code"></code></span></div>
           <div class="cloud-active-actions"><button id="cloud-push-current" class="btn" type="button">Sync current now</button><button id="cloud-switch-workspace" class="btn" type="button">Switch workspace</button></div>
+        </div>
+        <div id="cloud-conflict" class="cloud-conflict" hidden>
+          <div>
+            <strong>Cloud/local data conflict</strong>
+            <span id="cloud-conflict-text"></span>
+          </div>
+          <div class="cloud-conflict-actions">
+            <button id="cloud-keep-local" class="btn primary" type="button">Keep local & upload</button>
+            <button id="cloud-use-remote" class="btn danger" type="button">Use cloud copy</button>
+          </div>
         </div>
       </div>
     </section>
@@ -486,9 +496,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=28" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=28" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=28" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=28" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=29" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=29" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=29" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=29" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

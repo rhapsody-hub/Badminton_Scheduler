@@ -700,3 +700,23 @@ Generation now:
 6. The loading message is always replaced by success or a specific error.
 
 Older cloud workspace states are also migrated before default values are merged, preventing missing source-tracking fields from silently becoming empty arrays.
+
+
+## Cloud overwrite protection
+
+The app now protects participant and Group data from stale/incomplete cloud copies.
+
+Before applying an incoming cloud state, it compares:
+
+- participant count
+- Group count
+- total Group-member assignments
+
+If the cloud copy contains less directory/Group data than the current device, the cloud update is blocked and a conflict panel appears.
+
+The coordinator can then choose:
+
+- **Keep local & upload** — preserve this device's richer data and make it the shared cloud copy.
+- **Use cloud copy** — explicitly accept the smaller cloud copy.
+
+The app also stores up to 20 rolling local backups before cloud replacements/conflict decisions. This protection applies both when opening a workspace and to Realtime updates from other coordinators.
