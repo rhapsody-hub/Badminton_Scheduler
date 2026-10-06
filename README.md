@@ -848,3 +848,15 @@ Verification uses a separate, non-persistent Supabase client so checking the oth
 The coordinator password target dropdown now uses a taller control with horizontal-only select padding and an explicit readable font/line-height. This prevents selected email text from being vertically clipped.
 
 Coordinator credential text fields were also normalized to use fixed-height controls without oversized inherited vertical padding.
+
+
+## Collapsible Shared Cloud Workspace
+
+The Shared Cloud Workspace control is now a `<details>` panel.
+
+- Signed-in sessions default to the compact collapsed view.
+- The collapsed row still shows the current cloud/workspace status badge and status text.
+- Click the row to expand workspace, sign-out, sync, create, and join controls.
+- Signed-out users automatically see it expanded so the login form remains accessible.
+- Cloud configuration errors and cloud/local data conflicts automatically expand it because action is required.
+- After a successful sign-in it collapses automatically to reduce page height.

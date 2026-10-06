@@ -784,6 +784,10 @@
     }
 
     showCloudElement('cloud-conflict', true);
+
+    const cloudDetails = $('#cloud-panel-details');
+    if (cloudDetails) cloudDetails.open = true;
+
     setCloudUiStatus(
       'conflict',
       'Cloud has less participant/group data than this device. Choose which copy to keep.'
@@ -869,6 +873,10 @@
       const message = 'Supabase is not configured, so coordinator sign-in is unavailable.';
       setCloudUiStatus('offline', 'Configure Supabase in config.js for cross-device sync.');
       setAuthFeedback(message, 'error');
+
+      const cloudDetails = $('#cloud-panel-details');
+      if (cloudDetails) cloudDetails.open = true;
+
       return;
     }
 
@@ -876,6 +884,9 @@
     if (!user) {
       showCloudElement('cloud-auth-signed-out', true);
       setCloudUiStatus('signedout', 'Sign in to access the shared coordinator workspace.');
+
+      const cloudDetails = $('#cloud-panel-details');
+      if (cloudDetails) cloudDetails.open = true;
 
       if (!$('#cloud-auth-feedback')?.textContent) {
         setAuthFeedback(
@@ -3900,6 +3911,9 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
 
       await renderCloudUi();
       await renderCoordinators();
+
+      const cloudDetails = $('#cloud-panel-details');
+      if (cloudDetails) cloudDetails.open = false;
     } catch (error) {
       const message = friendlySignInError(error);
 

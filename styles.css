@@ -4309,3 +4309,113 @@ label {
   padding-bottom: 0;
   line-height: 1.25;
 }
+
+
+/* =========================================================
+   Collapsible Shared Cloud Workspace
+   ========================================================= */
+
+#cloud-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cloud-panel-details {
+  width: 100%;
+}
+
+.cloud-panel-summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.cloud-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cloud-panel-summary::marker {
+  content: "";
+}
+
+.cloud-panel-summary:hover {
+  background: rgba(49, 95, 158, 0.025);
+}
+
+.cloud-panel-summary-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cloud-panel-summary-copy strong {
+  font-size: 0.71rem;
+}
+
+.cloud-panel-summary-copy #cloud-status-text {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.59rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cloud-panel-summary-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.cloud-panel-chevron {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 140ms ease;
+}
+
+.cloud-panel-details[open] .cloud-panel-chevron {
+  transform: rotate(180deg);
+}
+
+.cloud-panel-details[open] .cloud-panel-summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.cloud-panel-body {
+  padding: 10px 12px 12px;
+}
+
+.cloud-panel-body > :first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 620px) {
+  .cloud-panel-summary {
+    min-height: 46px;
+    padding: 9px 10px;
+  }
+
+  .cloud-panel-summary-copy #cloud-status-text {
+    max-width: 58vw;
+  }
+
+  .cloud-panel-body {
+    padding: 9px 10px 11px;
+  }
+}
