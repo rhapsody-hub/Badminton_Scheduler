@@ -586,6 +586,47 @@
     return workspaces;
   }
 
+  function prepareIncomingState(rawState) {
+    const incoming = JSON.parse(JSON.stringify(rawState || {}));
+
+    if (!Array.isArray(incoming.sessionGroupIds)) {
+      incoming.sessionGroupIds = [];
+    }
+
+    if (!Array.isArray(incoming.sessionIndividualMemberIds)) {
+      /*
+        Older linked-group builds used sessionManualMemberIds for explicit
+        individuals. If there are linked groups, use that older field.
+        If there are no linked groups, preserve the old current participants
+        as individual sources so upgrading does not silently produce zero.
+      */
+      if (incoming.sessionGroupIds.length) {
+        incoming.sessionIndividualMemberIds = Array.isArray(incoming.sessionManualMemberIds)
+          ? [...incoming.sessionManualMemberIds]
+          : [];
+      } else {
+        incoming.sessionIndividualMemberIds = Array.isArray(incoming.sessionManualMemberIds) &&
+          incoming.sessionManualMemberIds.length
+          ? [...incoming.sessionManualMemberIds]
+          : (
+              Array.isArray(incoming.sessionMemberIds)
+                ? [...incoming.sessionMemberIds]
+                : []
+            );
+      }
+    }
+
+    if (!Array.isArray(incoming.sessionManualMemberIds)) {
+      incoming.sessionManualMemberIds = [];
+    }
+
+    if (!Array.isArray(incoming.sessionExcludedMemberIds)) {
+      incoming.sessionExcludedMemberIds = [];
+    }
+
+    return incoming;
+  }
+
   async function activateCloudWorkspace(workspace, { loadState = true } = {}) {
     if (!workspace) return;
     historySource = 'cloud';
@@ -599,7 +640,7 @@
       const remoteState = await window.BadmintonCloud.loadCurrentState();
       if (remoteState?.members?.length) {
         applyingRemoteState = true;
-        state = { ...defaultState(), ...JSON.parse(JSON.stringify(remoteState)) };
+        state = { ...defaultState(), ...prepareIncomingState(remoteState) };
         applyingRemoteState = false;
         syncSessionInputs();
         window.BadmintonStorage?.save(snapshotState());
@@ -659,7 +700,7 @@
     window.BadmintonCloud.setRemoteStateHandler((remoteState) => {
       if (!remoteState?.members?.length) return;
       applyingRemoteState = true;
-      state = { ...defaultState(), ...JSON.parse(JSON.stringify(remoteState)) };
+      state = { ...defaultState(), ...prepareIncomingState(remoteState) };
       applyingRemoteState = false;
       syncSessionInputs();
       window.BadmintonStorage?.save(snapshotState());
@@ -817,32 +858,115 @@
     return shuffleCopy(pool).slice(0,4);
   }
 
-  function rebuildSessionFromSelectedSources() {
+  function getFreshSessionSource() {
     normalizeRuntimeMembership();
 
-    /*
-      A fresh generation is based only on the coordinator's current sources:
-      - linked Groups
-      - individually added participants
+    const validParticipantIds = new Set(
+      state.members.map(participant => participant.id)
+    );
 
-      Old session-only exclusions, attendance, matches, completion state,
-      playing state, and prior schedule are discarded.
-    */
-    state.sessionExcludedMemberIds = [];
+    const requestedGroupIds = Array.isArray(state.sessionGroupIds)
+      ? [...new Set(state.sessionGroupIds.map(String))]
+      : [];
 
-    // Recalculate the participant list strictly from current linked groups
-    // and individually-added people.
-    syncSessionParticipantsFromSources();
+    const linkedGroups = requestedGroupIds
+      .map(groupId => groupById(groupId))
+      .filter(Boolean);
 
-    // A new generation starts with fresh attendance.
-    getSessionMembers().forEach(participant => {
-      participant.present = false;
+    const missingGroupIds = requestedGroupIds.filter(
+      groupId => !groupById(groupId)
+    );
+
+    const groupParticipantIds = new Set();
+
+    linkedGroups.forEach(group => {
+      group.memberIds.forEach(id => {
+        const participantId = Number(id);
+        if (validParticipantIds.has(participantId)) {
+          groupParticipantIds.add(participantId);
+        }
+      });
     });
 
-    // Completely discard the previous schedule and all match progress.
+    const individualParticipantIds = [
+      ...new Set(
+        (state.sessionIndividualMemberIds || [])
+          .map(Number)
+          .filter(id =>
+            validParticipantIds.has(id) &&
+            !groupParticipantIds.has(id)
+          )
+      )
+    ];
+
+    const participantIds = [
+      ...groupParticipantIds,
+      ...individualParticipantIds
+    ];
+
+    return {
+      linkedGroups,
+      missingGroupIds,
+      groupParticipantIds: [...groupParticipantIds],
+      individualParticipantIds,
+      participantIds
+    };
+  }
+
+  function commitFreshSessionSource(source) {
+    const selectedIds = new Set(source.participantIds);
+
+    // The old session and all of its progress are now deliberately discarded,
+    // but only after the new source has already passed validation.
+    state.sessionExcludedMemberIds = [];
+    state.sessionMemberIds = [...source.participantIds];
+
+    const nextTypes = {};
+
+    source.participantIds.forEach(id => {
+      const firstGroup = source.linkedGroups.find(
+        group => group.memberIds.includes(id)
+      );
+
+      nextTypes[id] = firstGroup
+        ? groupMembershipType(firstGroup, id)
+        : (
+            state.sessionParticipantTypes?.[id] === 'non-member'
+              ? 'non-member'
+              : 'regular'
+          );
+    });
+
+    state.sessionParticipantTypes = nextTypes;
+
+    state.members.forEach(participant => {
+      if (selectedIds.has(participant.id)) {
+        participant.present = false;
+      }
+    });
+
     state.matches = [];
 
-    return getSessionMembers();
+    return state.members.filter(
+      participant => selectedIds.has(participant.id)
+    );
+  }
+
+  function renderSessionSourceSummary() {
+    const element = $('#session-source-summary');
+    if (!element) return;
+
+    const source = getFreshSessionSource();
+
+    const groupCount = source.linkedGroups.length;
+    const individualCount = source.individualParticipantIds.length;
+    const participantCount = source.participantIds.length;
+
+    element.innerHTML = `
+      <span><strong>${groupCount}</strong> linked group${groupCount === 1 ? '' : 's'}</span>
+      <span><strong>${individualCount}</strong> individual${individualCount === 1 ? '' : 's'}</span>
+      <span><strong>${participantCount}</strong> selected participants</span>
+    `;
   }
 
   async function generateMatches() {
@@ -854,38 +978,52 @@
         button.textContent = 'Generating…';
       }
 
-      setGenerateMessage('Generating schedule…', 'working');
+      setGenerateMessage('Checking selected groups and individuals…', 'working');
 
       state.sessionName = $('#session-name').value.trim().slice(0, 80);
       state.sessionDate = $('#session-date').value || localDateValue();
+      state.courts = Math.max(1, Math.min(12, Number($('#courts').value) || 3));
+      state.duration = Math.max(30, Math.min(720, Number($('#duration').value) || 180));
+      state.rotationMin = Math.max(10, Math.min(60, Number($('#rotation-min').value) || 18));
+      state.mix = $('#mix').value;
 
-    state.courts = Math.max(1, Math.min(12, Number($('#courts').value) || 3));
-    state.duration = Math.max(30, Math.min(720, Number($('#duration').value) || 180));
-    state.rotationMin = Math.max(10, Math.min(60, Number($('#rotation-min').value) || 18));
-    state.mix = $('#mix').value;
+      const source = getFreshSessionSource();
+      const sourceCount = source.participantIds.length;
 
-    const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
-    const slotsPerRound = state.courts * 4;
-    const participants = rebuildSessionFromSelectedSources();
-
-      // Persist the cleared/rebuilt session immediately before scheduling.
-      saveState('', 0);
-
-    if (participants.length < 4) {
-      setStatus('Add at least 4 participants to this session before generating matches.');
-      return;
-    }
-
-
-      const participantCount = participants.length;
-
-      if (participantCount < 4) {
+      // Critical: do not destroy the old session until the new source is valid.
+      if (source.missingGroupIds.length) {
         const message =
-          `Cannot generate matches: this session has ${participantCount} participant${participantCount === 1 ? '' : 's'}. Add at least 4.`;
+          'Cannot generate: one or more linked groups no longer exist. Re-link the groups on the Session page.';
         setStatus(message);
         setGenerateMessage(message, 'error');
         return;
       }
+
+      if (sourceCount < 4) {
+        let message;
+
+        if (!source.linkedGroups.length && !source.individualParticipantIds.length) {
+          message =
+            'Nothing is selected for this session. Link at least one group or add individuals first.';
+        } else {
+          message =
+            `Only ${sourceCount} participant${sourceCount === 1 ? '' : 's'} selected. At least 4 are required to generate matches.`;
+        }
+
+        setStatus(message);
+        setGenerateMessage(message, 'error');
+        return;
+      }
+
+      setGenerateMessage(
+        `Building a fresh schedule for ${sourceCount} participants…`,
+        'working'
+      );
+
+      const participants = commitFreshSessionSource(source);
+      const participantCount = participants.length;
+      const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
+      const slotsPerRound = state.courts * 4;
 
     const plays = new Map(participants.map(m => [m.id, 0]));
     const last = new Map(participants.map(m => [m.id, -99]));
@@ -1038,6 +1176,7 @@
     }
 
 
+
       if (!matches.length) {
         const message =
           'No matches could be generated from the current participants and settings.';
@@ -1048,8 +1187,6 @@
 
       state.matches = matches;
 
-      // Save immediately so the generated schedule is not left waiting behind
-      // the normal cloud debounce.
       saveState('', 0);
       renderAll();
 
@@ -1058,16 +1195,13 @@
       const maxMatches = Math.max(...counts);
 
       const message =
-        `Generated a fresh schedule: ${matches.length} matches for ${participantCount} participants. ` +
+        `Generated ${matches.length} fresh matches for ${participantCount} participants. ` +
         `Participation range: ${minMatches}–${maxMatches} matches.`;
 
       setStatus(message);
       setGenerateMessage(message, 'success');
 
-      // The schedule lives on the Matches page. Moving there immediately makes
-      // Generate / Reshuffle visibly complete its action.
       showPanel('matches', true);
-
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error('Match generation failed:', error);
@@ -1856,6 +1990,8 @@
         removeSessionMember(event.currentTarget.dataset.id);
       });
     });
+
+    renderSessionSourceSummary();
   }
 
   function playerOptionMembers(selected) {

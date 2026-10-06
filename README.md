@@ -684,3 +684,19 @@ It shows:
 - excluding only people already added explicitly through **Add person**
 
 Older session carry-over is no longer treated as an intentional individual selection when linked Groups are present. This prevents stale participants from disappearing from the dropdown.
+
+
+## Generator source validation fix
+
+The generator no longer clears the old session before checking whether the new source is valid.
+
+Generation now:
+
+1. Reads currently linked Groups and explicitly added individuals.
+2. Shows a source summary on the Session page.
+3. Requires at least 4 selected participants.
+4. Displays a clear error when no Group/individual source is selected.
+5. Only after validation succeeds does it delete the old match schedule and rebuild the fresh session.
+6. The loading message is always replaced by success or a specific error.
+
+Older cloud workspace states are also migrated before default values are merged, preventing missing source-tracking fields from silently becoming empty arrays.

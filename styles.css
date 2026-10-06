@@ -3596,3 +3596,32 @@ label {
 .session-generate-btn {
   white-space: nowrap;
 }
+
+
+/* =========================================================
+   Session source visibility + generator validation
+   ========================================================= */
+
+.session-source-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.session-source-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 25px;
+  padding: 3px 7px;
+  border: 1px solid #dce2e9;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.6rem;
+}
+
+.session-source-summary strong {
+  color: var(--text);
+}
