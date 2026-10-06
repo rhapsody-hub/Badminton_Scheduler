@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=42" />
+  <link rel="stylesheet" href="styles.css?refresh=43" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -521,6 +521,25 @@
 
         <div class="matches-collapsible-body">
           <div class="planned-schedule-toolbar">
+            <div class="planned-schedule-filter">
+              <label for="planned-player-search">Find player</label>
+              <div class="planned-search-row">
+                <input
+                  id="planned-player-search"
+                  class="input"
+                  type="search"
+                  autocomplete="off"
+                  placeholder="Search player name..."
+                />
+                <button
+                  id="planned-player-search-clear"
+                  class="btn"
+                  type="button"
+                  aria-label="Clear planned schedule player search"
+                >Clear</button>
+              </div>
+            </div>
+
             <label class="toolbar-check">
               <input id="hide-completed" type="checkbox" />
               Hide completed
@@ -687,9 +706,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=42" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

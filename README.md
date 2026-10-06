@@ -906,3 +906,18 @@ Each rotation is now displayed as a readable group of **Match 1, Match 2, ...** 
 Physical court assignment is intentionally absent from the planned view. A match receives an actual free court only when **Start match** is pressed.
 
 The generator may still retain an internal per-rotation slot number for ordering and backward compatibility, but that value is not presented as a planned physical court.
+
+
+## Planned Schedule search and dynamic columns
+
+The Planned Schedule now includes a player-name search box. Typing a name filters the planned rotations to matches containing that participant without changing the schedule.
+
+The number of planned-match columns now follows the configured court count:
+
+- 1 court → 1 column
+- 2 courts → 2 columns
+- 3 courts → 3 columns
+- 4 courts → 4 columns
+- etc.
+
+These columns represent how many simultaneous match slots a rotation can contain. They are not fixed physical court assignments; actual court assignment still happens automatically when a match starts.

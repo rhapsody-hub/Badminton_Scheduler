@@ -2910,6 +2910,8 @@
 
     const body = $('#match-grid-body');
     const hideCompleted = Boolean($('#hide-completed')?.checked);
+    const playerSearch =
+      ($('#planned-player-search')?.value || '').trim().toLowerCase();
 
     if (!body) return;
 
@@ -2937,9 +2939,19 @@
     const rotations = [];
 
     for (const [round, roundMatches] of grouped.entries()) {
-      const visibleMatches = hideCompleted
+      let visibleMatches = hideCompleted
         ? roundMatches.filter(match => !match.completed)
-        : roundMatches;
+        : [...roundMatches];
+
+      if (playerSearch) {
+        visibleMatches = visibleMatches.filter(match =>
+          match.players.some(id =>
+            String(memberById(id)?.name || '')
+              .toLowerCase()
+              .includes(playerSearch)
+          )
+        );
+      }
 
       if (!visibleMatches.length) continue;
 
@@ -3055,7 +3067,10 @@
             </span>
           </div>
 
-          <div class="planned-match-grid">
+          <div
+            class="planned-match-grid"
+            style="--planned-column-count: ${Math.max(1, Number(state.courts) || 1)}"
+          >
             ${cards}
           </div>
         </section>
@@ -3066,7 +3081,11 @@
       ? rotations.join('')
       : `
         <div class="planned-schedule-empty">
-          All matches are completed.
+          ${
+            playerSearch
+              ? `No planned matches found for "${esc($('#planned-player-search')?.value || '')}".`
+              : (hideCompleted ? 'No uncompleted planned matches.' : 'All matches are completed.')
+          }
         </div>
       `;
 
@@ -4250,6 +4269,17 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     state.matches.forEach(m => m.confirmed = true);
     saveState('All matches confirmed and saved.');
     renderAll();
+  });
+
+  $('#planned-player-search').addEventListener('input', () => {
+    renderMatches();
+  });
+
+  $('#planned-player-search-clear').addEventListener('click', () => {
+    const input = $('#planned-player-search');
+    input.value = '';
+    input.focus();
+    renderMatches();
   });
 
   $('#hide-completed').addEventListener('change', () => {
