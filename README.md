@@ -860,3 +860,13 @@ The Shared Cloud Workspace control is now a `<details>` panel.
 - Signed-out users automatically see it expanded so the login form remains accessible.
 - Cloud configuration errors and cloud/local data conflicts automatically expand it because action is required.
 - After a successful sign-in it collapses automatically to reduce page height.
+
+
+## Attendance-preserving reshuffles
+
+Attendance is now preserved when:
+
+- **Reshuffle matches** is pressed on the Matches page
+- the women's skill adjustment radio option is changed and the schedule auto-reshuffles
+
+The Session page's **Generate fresh matches** behavior remains separate and can still initialize a fresh session attendance state.

@@ -1163,7 +1163,10 @@
     };
   }
 
-  function commitFreshSessionSource(source) {
+  function commitFreshSessionSource(
+    source,
+    { preserveAttendance = false } = {}
+  ) {
     const selectedIds = new Set(source.participantIds);
 
     // The old session and all of its progress are now deliberately discarded,
@@ -1189,11 +1192,13 @@
 
     state.sessionParticipantTypes = nextTypes;
 
-    state.members.forEach(participant => {
-      if (selectedIds.has(participant.id)) {
-        participant.present = false;
-      }
-    });
+    if (!preserveAttendance) {
+      state.members.forEach(participant => {
+        if (selectedIds.has(participant.id)) {
+          participant.present = false;
+        }
+      });
+    }
 
     state.matches = [];
 
@@ -1219,7 +1224,9 @@
     `;
   }
 
-  async function generateMatches() {
+  async function generateMatches({
+    preserveAttendance = false
+  } = {}) {
     const button = $('#generate');
 
     try {
@@ -1283,7 +1290,9 @@
         'working'
       );
 
-      const participants = commitFreshSessionSource(source);
+      const participants = commitFreshSessionSource(source, {
+        preserveAttendance
+      });
       const participantCount = participants.length;
       const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
       const slotsPerRound = state.courts * 4;
@@ -4031,7 +4040,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   $('#generate').addEventListener('click', generateMatches);
 
   $('#reshuffle-matches').addEventListener('click', async () => {
-    await generateMatches();
+    await generateMatches({ preserveAttendance: true });
   });
 
   $$('input[name="women-skill-adjustment"]').forEach(input => {
@@ -4049,7 +4058,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         0
       );
 
-      await generateMatches();
+      await generateMatches({ preserveAttendance: true });
     });
   });
 
