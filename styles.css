@@ -3590,3 +3590,9 @@ label {
     flex: 1 1 0;
   }
 }
+
+
+/* Fresh generation keeps the primary Session action explicit. */
+.session-generate-btn {
+  white-space: nowrap;
+}

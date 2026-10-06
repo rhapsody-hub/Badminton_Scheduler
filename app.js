@@ -800,6 +800,34 @@
     return shuffleCopy(pool).slice(0,4);
   }
 
+  function rebuildSessionFromSelectedSources() {
+    normalizeRuntimeMembership();
+
+    /*
+      A fresh generation is based only on the coordinator's current sources:
+      - linked Groups
+      - individually added participants
+
+      Old session-only exclusions, attendance, matches, completion state,
+      playing state, and prior schedule are discarded.
+    */
+    state.sessionExcludedMemberIds = [];
+
+    // Recalculate the participant list strictly from current linked groups
+    // and individually-added people.
+    syncSessionParticipantsFromSources();
+
+    // A new generation starts with fresh attendance.
+    getSessionMembers().forEach(participant => {
+      participant.present = false;
+    });
+
+    // Completely discard the previous schedule and all match progress.
+    state.matches = [];
+
+    return getSessionMembers();
+  }
+
   async function generateMatches() {
     const button = $('#generate');
 
@@ -821,7 +849,10 @@
 
     const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
     const slotsPerRound = state.courts * 4;
-    const participants = getSessionMembers();
+    const participants = rebuildSessionFromSelectedSources();
+
+      // Persist the cleared/rebuilt session immediately before scheduling.
+      saveState('', 0);
 
     if (participants.length < 4) {
       setStatus('Add at least 4 participants to this session before generating matches.');
@@ -1010,7 +1041,7 @@
       const maxMatches = Math.max(...counts);
 
       const message =
-        `Generated ${matches.length} matches for ${participantCount} participants. ` +
+        `Generated a fresh schedule: ${matches.length} matches for ${participantCount} participants. ` +
         `Participation range: ${minMatches}–${maxMatches} matches.`;
 
       setStatus(message);
@@ -1032,7 +1063,7 @@
     } finally {
       if (button) {
         button.disabled = false;
-        button.textContent = 'Generate / Reshuffle matches';
+        button.textContent = 'Generate fresh matches';
       }
     }
   }

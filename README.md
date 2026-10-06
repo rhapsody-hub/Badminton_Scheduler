@@ -652,3 +652,23 @@ The Matches page is now organized around live operation:
 This keeps upcoming playable matches near the top of the page instead of below the full attendance list.
 
 Export Excel and Save Session remain at the top. Confirm/Unconfirm, Hide Completed, the skill legend, and the full rotation grid are now inside Planned Schedule.
+
+
+## Fresh Session Generation
+
+**Generate fresh matches** now rebuilds the current session from scratch before generating.
+
+The source of truth is only:
+
+- currently linked Groups
+- individually added participants
+
+Each generation now:
+
+1. Clears old session-only participant exclusions.
+2. Rebuilds participants from the currently linked Groups and individually added people.
+3. Resets attendance for those participants.
+4. Deletes the entire old match schedule, including Playing / Completed progress.
+5. Generates a completely new schedule from the rebuilt participant list.
+
+Session name, date, court count, duration, rotation length, and match-mix settings are retained.
