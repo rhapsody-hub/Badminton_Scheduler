@@ -3727,3 +3727,228 @@ label {
     padding-top: 2px;
   }
 }
+
+
+/* =========================================================
+   Matches-page women's skill adjustment radios
+   ========================================================= */
+
+.match-skill-adjustment-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 5px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.match-skill-adjustment-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.match-skill-adjustment-copy strong {
+  font-size: 0.7rem;
+}
+
+.match-skill-adjustment-copy span {
+  color: var(--muted);
+  font-size: 0.57rem;
+}
+
+.match-skill-adjustment-options {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.match-skill-adjustment-options label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.match-skill-adjustment-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.match-skill-adjustment-options span {
+  min-width: 52px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 1px solid #d6dde6;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--text);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.match-skill-adjustment-options input:checked + span {
+  border-color: #4472c4;
+  background: #eef4ff;
+  box-shadow: inset 0 0 0 1px #4472c4;
+}
+
+.match-skill-adjustment-options input:focus-visible + span {
+  outline: 2px solid #4472c4;
+  outline-offset: 2px;
+}
+
+#reshuffle-matches {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .match-skill-adjustment-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .match-skill-adjustment-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .match-skill-adjustment-options label,
+  .match-skill-adjustment-options span {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .match-skill-adjustment-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* Automatic live court assignment */
+.available-auto-court {
+  display: inline-flex;
+  align-items: center;
+  min-height: 29px;
+  padding: 4px 7px;
+  border: 1px solid #dce2e9;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Approved coordinator access */
+.cloud-approved-login {
+  flex-wrap: wrap;
+}
+
+.cloud-approved-note {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.3;
+}
+
+.coordinator-manager-card {
+  padding: 12px;
+}
+
+.coordinator-access-note {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.coordinator-add-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.coordinator-add-row .input {
+  width: 100%;
+  height: 37px;
+}
+
+.coordinator-add-row .btn {
+  min-height: 37px;
+}
+
+.coordinator-help {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.61rem;
+  line-height: 1.35;
+}
+
+.coordinator-list {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.coordinator-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 45px;
+  padding: 7px 9px;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.coordinator-row:last-child {
+  border-bottom: 0;
+}
+
+.coordinator-row > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coordinator-row strong {
+  overflow-wrap: anywhere;
+  font-size: 0.7rem;
+}
+
+.coordinator-you {
+  display: inline-flex;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #365f9d;
+  font-size: 0.52rem;
+  font-weight: 900;
+}
+
+.coordinator-empty {
+  padding: 14px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 620px) {
+  .coordinator-add-row {
+    grid-template-columns: 1fr;
+  }
+
+  .coordinator-add-row .btn {
+    width: 100%;
+  }
+}

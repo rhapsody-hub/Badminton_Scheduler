@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=31" />
+  <link rel="stylesheet" href="styles.css?refresh=33" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -23,6 +23,7 @@
       <a class="tab" href="#groups" data-tab="groups" aria-selected="false">Groups</a>
       <a class="tab" href="#session" data-tab="session" aria-selected="false">Session</a>
       <a class="tab" href="#matches" data-tab="matches" aria-selected="false">Matches</a>
+      <a class="tab" href="#coordinators" data-tab="coordinators" aria-selected="false">Coordinators</a>
       
       <a class="tab" href="#history" data-tab="history" aria-selected="false">Session History</a>
     </nav>
@@ -35,9 +36,13 @@
         <span id="cloud-sync-badge" class="cloud-sync-badge offline">Local only</span>
       </div>
       <div id="cloud-config-missing" class="cloud-config-message" hidden>Supabase is not configured yet. Fill in <code>config.js</code>, then refresh.</div>
-      <div id="cloud-auth-signed-out" class="cloud-auth-row" hidden>
-        <label class="cloud-email-label">Coordinator email<input id="cloud-email" class="input" type="email" autocomplete="email" placeholder="name@example.com" /></label>
-        <button id="cloud-signin" class="btn primary" type="button">Send sign-in link</button>
+      <div id="cloud-auth-signed-out" class="cloud-auth-row cloud-approved-login" hidden>
+        <label class="cloud-email-label">
+          Approved coordinator email
+          <input id="cloud-email" class="input" type="email" autocomplete="email" placeholder="name@example.com" />
+        </label>
+        <button id="cloud-signin" class="btn primary" type="button">Sign in</button>
+        <span class="cloud-approved-note">Only emails already added under Coordinators can request access.</span>
       </div>
       <div id="cloud-auth-signed-in" class="cloud-authenticated" hidden>
         <div class="cloud-user-row"><span>Signed in as <strong id="cloud-user-email"></strong></span><button id="cloud-signout" class="btn" type="button">Sign out</button></div>
@@ -331,13 +336,6 @@
                 </select>
               </label>
 
-              <label class="skill-adjustment-option">
-                <span class="skill-adjustment-check">
-                  <input id="women-skill-adjustment" type="checkbox" checked />
-                  <span>Apply women's skill adjustment (-0.25)</span>
-                </span>
-                <small>Optional balancing modifier. Displayed skill tiers are not changed.</small>
-              </label>
             </div>
           </div>
         </section>
@@ -382,10 +380,37 @@
         </div>
 
         <div class="match-toolbar live-primary-toolbar">
+          <button id="reshuffle-matches" class="btn primary" type="button">Reshuffle matches</button>
           <button id="export-excel" class="btn" type="button">Export Excel</button>
-          <button id="save-session-matches" class="btn primary" type="button">Save Session</button>
+          <button id="save-session-matches" class="btn" type="button">Save Session</button>
         </div>
       </div>
+
+      <section class="match-skill-adjustment-panel" aria-label="Women's skill adjustment">
+        <div class="match-skill-adjustment-copy">
+          <strong>Women's skill adjustment</strong>
+          <span>Internal balancing only; displayed tiers stay unchanged.</span>
+        </div>
+
+        <div class="match-skill-adjustment-options" role="radiogroup" aria-label="Women's skill adjustment amount">
+          <label>
+            <input type="radio" name="women-skill-adjustment" value="0" />
+            <span>None</span>
+          </label>
+          <label>
+            <input type="radio" name="women-skill-adjustment" value="0.25" />
+            <span>-0.25</span>
+          </label>
+          <label>
+            <input type="radio" name="women-skill-adjustment" value="0.5" />
+            <span>-0.5</span>
+          </label>
+          <label>
+            <input type="radio" name="women-skill-adjustment" value="1" />
+            <span>-1.0</span>
+          </label>
+        </div>
+      </section>
 
       <div id="live-summary" class="live-summary-strip"></div>
 
@@ -489,6 +514,47 @@
     </section>
 
 
+    <section id="coordinators" data-panel="coordinators" hidden>
+      <div class="section-head">
+        <div>
+          <h2>Coordinators</h2>
+          <p>Manage the email addresses allowed to sign in as coordinators.</p>
+        </div>
+      </div>
+
+      <div class="card coordinator-manager-card">
+        <div id="coordinator-access-note" class="coordinator-access-note">
+          Sign in with an approved coordinator email to manage access.
+        </div>
+
+        <div id="coordinator-manager-content" hidden>
+          <div class="coordinator-add-row">
+            <label>
+              Add coordinator email
+              <input
+                id="coordinator-add-email"
+                class="input"
+                type="email"
+                autocomplete="email"
+                placeholder="name@example.com"
+              />
+            </label>
+
+            <button id="coordinator-add-btn" class="btn primary" type="button">
+              Add coordinator
+            </button>
+          </div>
+
+          <div class="coordinator-help">
+            Added emails are stored in Supabase. A new coordinator can then enter that email in the sign-in box and receive their secure sign-in link.
+          </div>
+
+          <div id="coordinator-list" class="coordinator-list"></div>
+        </div>
+      </div>
+    </section>
+
+
     <section id="history" data-panel="history" hidden>
       <div class="section-head">
         <div>
@@ -504,9 +570,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=31" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=31" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=31" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=31" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

@@ -21,13 +21,80 @@
   const getActiveWorkspace = () => activeWorkspace;
   const setSyncStatusHandler = handler => { syncStatusHandler = handler; };
   const setRemoteStateHandler = handler => { remoteStateHandler = handler; };
+  async function isCoordinatorEmail(email) {
+    if (!client) throw new Error('Cloud is not configured.');
+
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return false;
+
+    const { data, error } = await client.rpc('is_badminton_coordinator', {
+      p_email: normalized
+    });
+
+    if (error) throw error;
+    return data === true;
+  }
+
   async function signInWithEmail(email) {
     if (!client) throw new Error('Cloud is not configured.');
+
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) throw new Error('Enter an approved coordinator email.');
+
+    const approved = await isCoordinatorEmail(normalized);
+    if (!approved) {
+      throw new Error('This email is not an approved coordinator.');
+    }
+
     const redirectTo =
       window.APP_CONFIG?.authRedirectUrl ||
       (window.location.origin + window.location.pathname);
-    const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+
+    const { error } = await client.auth.signInWithOtp({
+      email: normalized,
+      options: {
+        emailRedirectTo: redirectTo,
+        shouldCreateUser: true
+      }
+    });
+
     if (error) throw error;
+  }
+
+  async function listCoordinators() {
+    if (!client || !user) throw new Error('Sign in first.');
+
+    const { data, error } = await client.rpc('list_badminton_coordinators');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function addCoordinator(email) {
+    if (!client || !user) throw new Error('Sign in first.');
+
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) throw new Error('Enter an email address.');
+
+    const { data, error } = await client.rpc('add_badminton_coordinator', {
+      p_email: normalized
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async function removeCoordinator(email) {
+    if (!client || !user) throw new Error('Sign in first.');
+
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) throw new Error('Choose a coordinator email.');
+
+    const { data, error } = await client.rpc('remove_badminton_coordinator', {
+      p_email: normalized
+    });
+
+    if (error) throw error;
+    return data === true;
   }
   async function signOut() {
     if (!client) return;
@@ -124,5 +191,5 @@
     const { error } = await client.from('badminton_session_history').delete().eq('workspace_id', activeWorkspace.id);
     if (error) throw error; return true;
   }
-  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, signInWithEmail, signOut, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
+  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithEmail, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
 })();

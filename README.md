@@ -736,3 +736,45 @@ The option is enabled by default and saved per session.
 The optional women's balancing modifier has been reduced from **-0.5** to **-0.25**.
 
 Displayed skill tiers remain unchanged. Only the internal balancing score is adjusted.
+
+
+## Matches-page reshuffle and women's skill adjustment
+
+The women's balancing modifier has moved from Session to Matches.
+
+Available radio choices:
+
+- None
+- -0.25
+- -0.5
+- -1.0
+
+Changing the radio choice immediately regenerates / reshuffles the complete match schedule using the newly selected modifier.
+
+The Matches page also has a dedicated **Reshuffle matches** button.
+
+The adjustment is applied through one shared `effectiveSkillScore()` function. This function is used for player strength ordering, team pairing, match-balance scoring, and skill-profile calculations, so the selected value affects the actual schedule rather than only the display. Displayed participant tiers remain unchanged.
+
+For backward compatibility, older boolean skill-adjustment states are migrated to either None or -0.25.
+
+
+## Automatic physical court assignment
+
+Available matches no longer require the coordinator to choose a court before starting.
+
+Press **Start match** and the app assigns the first physically free court automatically. If all courts are occupied, the match remains waiting until a court becomes free.
+
+The full Planned Schedule can still display/edit planned court assignments before a match starts, but live court placement is automatic.
+
+## Approved coordinator emails
+
+Coordinator access now uses a Supabase-backed email allowlist.
+
+- The login box accepts an **Approved coordinator email**.
+- The app checks Supabase before sending the secure sign-in link.
+- Emails not present in the coordinator allowlist are rejected.
+- Workspace create/join operations also verify that the signed-in email is still approved.
+- A new **Coordinators** page lists approved emails and lets signed-in coordinators add or remove other coordinators.
+- A coordinator cannot remove their own email through the page.
+
+The connected Supabase project was migrated with the new coordinator table and RPC functions, and existing workspace members were used to seed the initial allowlist.

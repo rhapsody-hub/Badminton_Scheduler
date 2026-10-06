@@ -164,6 +164,9 @@
       duration: Math.max(30, Math.min(720, Number(raw.duration) || 180)),
       rotationMin: Math.max(10, Math.min(60, Number(raw.rotationMin) || 18)),
       mix: ['balanced','less-mixed','more-mixed'].includes(raw.mix) ? raw.mix : 'less-mixed',
+      womenSkillAdjustmentValue: [0, 0.25, 0.5, 1].includes(Number(raw.womenSkillAdjustmentValue))
+        ? Number(raw.womenSkillAdjustmentValue)
+        : (raw.womenSkillAdjustment === false ? 0 : 0.25),
       womenSkillAdjustment: raw.womenSkillAdjustment !== false
     };
   }

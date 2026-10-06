@@ -52,6 +52,7 @@
     duration: 180,
     rotationMin: 18,
     mix: 'less-mixed',
+    womenSkillAdjustmentValue: 0.25,
     womenSkillAdjustment: true
   });
 
@@ -76,13 +77,18 @@
   const memberById = (id) => state.members.find(m => m.id === Number(id));
   const memberName = (id) => memberById(id)?.name || '—';
 
+  function normalizedWomenSkillAdjustmentValue(value = state.womenSkillAdjustmentValue) {
+    const numeric = Number(value);
+    return [0, 0.25, 0.5, 1].includes(numeric) ? numeric : 0.25;
+  }
+
   function effectiveSkillScore(participant) {
     if (!participant) return score['?'];
 
     const base = score[participant.tier] ?? score['?'];
     const adjustment =
-      state.womenSkillAdjustment && participant.gender === 'Woman'
-        ? 0.25
+      participant.gender === 'Woman'
+        ? normalizedWomenSkillAdjustmentValue()
         : 0;
 
     return base - adjustment;
@@ -473,7 +479,8 @@
       duration: state.duration,
       rotationMin: state.rotationMin,
       mix: state.mix,
-      womenSkillAdjustment: state.womenSkillAdjustment !== false
+      womenSkillAdjustmentValue: normalizedWomenSkillAdjustmentValue(),
+      womenSkillAdjustment: normalizedWomenSkillAdjustmentValue() > 0
     };
   }
 
@@ -572,10 +579,17 @@
     $('#rotation-min').value = state.rotationMin;
     $('#mix').value = state.mix;
 
-    const womenAdjustment = $('#women-skill-adjustment');
-    if (womenAdjustment) {
-      womenAdjustment.checked = state.womenSkillAdjustment !== false;
-    }
+    syncWomenSkillAdjustmentControls();
+  }
+
+  function syncWomenSkillAdjustmentControls() {
+    state.womenSkillAdjustmentValue =
+      normalizedWomenSkillAdjustmentValue(state.womenSkillAdjustmentValue);
+
+    $$('input[name="women-skill-adjustment"]').forEach(input => {
+      input.checked =
+        Number(input.value) === state.womenSkillAdjustmentValue;
+    });
   }
 
   function setCloudUiStatus(status, detail = '') {
@@ -864,10 +878,19 @@
       cloudReady = Boolean(result.configured);
       if (!result.configured) { await renderCloudUi(); return; }
       if (result.user) {
-        const remembered = await window.BadmintonCloud.restoreRememberedWorkspace();
-        if (remembered) await activateCloudWorkspace(remembered, { loadState: true });
+        const approved = await window.BadmintonCloud.isCoordinatorEmail(result.user.email);
+
+        if (!approved) {
+          await window.BadmintonCloud.signOut();
+          setStatus('This email is no longer approved as a coordinator.');
+        } else {
+          const remembered = await window.BadmintonCloud.restoreRememberedWorkspace();
+          if (remembered) await activateCloudWorkspace(remembered, { loadState: true });
+        }
       }
+
       await renderCloudUi();
+      await renderCoordinators();
     } catch (error) {
       cloudReady = false;
       setCloudUiStatus('error', error.message);
@@ -1136,7 +1159,19 @@
       state.duration = Math.max(30, Math.min(720, Number($('#duration').value) || 180));
       state.rotationMin = Math.max(10, Math.min(60, Number($('#rotation-min').value) || 18));
       state.mix = $('#mix').value;
-      state.womenSkillAdjustment = $('#women-skill-adjustment')?.checked !== false;
+
+      const selectedAdjustment =
+        document.querySelector('input[name="women-skill-adjustment"]:checked');
+
+      if (selectedAdjustment) {
+        state.womenSkillAdjustmentValue =
+          normalizedWomenSkillAdjustmentValue(selectedAdjustment.value);
+      } else {
+        state.womenSkillAdjustmentValue =
+          normalizedWomenSkillAdjustmentValue(state.womenSkillAdjustmentValue);
+      }
+
+      state.womenSkillAdjustment = state.womenSkillAdjustmentValue > 0;
 
       const source = getFreshSessionSource();
       const sourceCount = source.participantIds.length;
@@ -2245,6 +2280,16 @@
     );
   }
 
+  function getFirstFreeCourt() {
+    for (let courtNo = 1; courtNo <= state.courts; courtNo++) {
+      if (!getPlayingMatchOnCourt(courtNo)) {
+        return courtNo;
+      }
+    }
+
+    return null;
+  }
+
   function courtOptions(selectedCourt) {
     return Array.from({ length: state.courts }, (_, index) => {
       const courtNo = index + 1;
@@ -2396,10 +2441,28 @@
       return;
     }
 
-    const occupied = getPlayingMatchOnCourt(match.court, match.id);
-    if (occupied) {
-      setStatus(`Court ${match.court} is already being used by R${occupied.round}.`);
+    const freeCourt = getFirstFreeCourt();
+    if (!freeCourt) {
+      setStatus('Cannot start yet: all courts are currently occupied.');
       return;
+    }
+
+    const oldCourt = Number(match.court) || 1;
+
+    if (freeCourt !== oldCourt) {
+      const sameRoundConflict = state.matches.find(other =>
+        other.id !== match.id &&
+        Number(other.round) === Number(match.round) &&
+        !other.playing &&
+        !other.completed &&
+        Number(other.court) === freeCourt
+      );
+
+      if (sameRoundConflict) {
+        sameRoundConflict.court = oldCourt;
+      }
+
+      match.court = freeCourt;
     }
 
     match.playing = true;
@@ -2407,7 +2470,9 @@
     match.completed = false;
     match.completedAt = null;
 
-    saveState(`R${match.round} started on Court ${match.court}. Player played counts increased.`);
+    saveState(
+      `R${match.round} automatically started on free Court ${match.court}. Player played counts increased.`
+    );
     renderAll();
   }
 
@@ -2539,6 +2604,7 @@
           <tr><td class="label">Duration</td><td>${state.duration} min</td></tr>
           <tr><td class="label">Rotation</td><td>${state.rotationMin} min</td></tr>
           <tr><td class="label">Match mix</td><td>${excelEscape(state.mix)}</td></tr>
+          <tr><td class="label">Women's skill adjustment</td><td>${normalizedWomenSkillAdjustmentValue() ? `-${normalizedWomenSkillAdjustmentValue()}` : 'None'}</td></tr>
           <tr><td class="label">Total matches</td><td>${state.matches.length}</td></tr>
         </table>
 
@@ -2634,6 +2700,8 @@
   }
 
   function renderMatches() {
+    syncWomenSkillAdjustmentControls();
+
     const head = $('#match-grid-head');
     const body = $('#match-grid-body');
     const hideCompleted = Boolean($('#hide-completed')?.checked);
@@ -2954,9 +3022,9 @@
                   <div class="available-count-note">Played counts: ${counts.join(' · ')} · Total ${priority}</div>
                 </div>
 
-                <select class="available-court-select" aria-label="Court for R${match.round}">
-                  ${courtOptions(match.court)}
-                </select>
+                <span class="available-auto-court">
+                  ${getFirstFreeCourt() ? `Auto → Court ${getFirstFreeCourt()}` : 'Waiting for free court'}
+                </span>
               </div>
 
               <div class="available-teams-grid">
@@ -2976,7 +3044,7 @@
               <div class="available-match-foot">
                 <span>${matchSkillLabel(match)}</span>
                 <button class="btn primary start-match" data-id="${esc(match.id)}" type="button">
-                  Start on Court ${match.court}
+                  Start match
                 </button>
               </div>
             </article>
@@ -3007,13 +3075,7 @@
           `;
         }).join('')
       : '<div class="card">No waiting matches.</div>';
-
-    $$('.available-court-select').forEach(select => select.addEventListener('change', event => {
-      const card = event.target.closest('[data-available-match]');
-      changeMatchCourt(card.dataset.availableMatch, event.target.value);
-    }));
-
-    $$('.available-player-select').forEach(select => select.addEventListener('change', event => {
+$$('.available-player-select').forEach(select => select.addEventListener('change', event => {
       const card = event.target.closest('[data-available-match]');
       changeMatchPlayerWithSwap(
         card.dataset.availableMatch,
@@ -3201,6 +3263,85 @@
     }));
   }
 
+  async function renderCoordinators() {
+    const note = $('#coordinator-access-note');
+    const content = $('#coordinator-manager-content');
+    const list = $('#coordinator-list');
+
+    if (!note || !content || !list) return;
+
+    if (!window.BadmintonCloud?.isConfigured()) {
+      note.textContent = 'Supabase is not configured.';
+      note.hidden = false;
+      content.hidden = true;
+      return;
+    }
+
+    const user = window.BadmintonCloud.getUser();
+
+    if (!user) {
+      note.textContent = 'Sign in with an approved coordinator email to manage coordinator access.';
+      note.hidden = false;
+      content.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+
+    try {
+      const coordinators = await window.BadmintonCloud.listCoordinators();
+
+      note.hidden = true;
+      content.hidden = false;
+
+      list.innerHTML = coordinators.length
+        ? coordinators.map(item => {
+            const isSelf =
+              String(item.email || '').toLowerCase() ===
+              String(user.email || '').toLowerCase();
+
+            return `
+              <div class="coordinator-row">
+                <div>
+                  <strong>${esc(item.email)}</strong>
+                  ${isSelf ? '<span class="coordinator-you">You</span>' : ''}
+                </div>
+
+                <button
+                  class="btn danger coordinator-remove"
+                  type="button"
+                  data-email="${esc(item.email)}"
+                  ${isSelf ? 'disabled title="You cannot remove your own coordinator email"' : ''}
+                >Remove</button>
+              </div>
+            `;
+          }).join('')
+        : '<div class="coordinator-empty">No coordinator emails found.</div>';
+
+      $$('.coordinator-remove').forEach(button => {
+        button.addEventListener('click', async event => {
+          const email = event.currentTarget.dataset.email;
+          if (!email) return;
+
+          if (!window.confirm(`Remove coordinator access for ${email}?`)) {
+            return;
+          }
+
+          try {
+            await window.BadmintonCloud.removeCoordinator(email);
+            setStatus(`Coordinator removed: ${email}`);
+            await renderCoordinators();
+          } catch (error) {
+            setStatus(`Could not remove coordinator: ${error.message}`);
+          }
+        });
+      });
+    } catch (error) {
+      note.textContent = `Could not load coordinators: ${error.message}`;
+      note.hidden = false;
+      content.hidden = true;
+    }
+  }
+
   function renderAll() {
     renderMembers();
     renderGroupManager();
@@ -3208,11 +3349,12 @@
     renderPlayerMatchCounts();
     renderMatches();
     renderAttendance();
+    renderCoordinators();
     renderHistory();
   }
 
   function showPanel(panelName, updateHash = false) {
-    const validPanels = ['participants', 'groups', 'session', 'matches', 'history'];
+    const validPanels = ['participants', 'groups', 'session', 'matches', 'coordinators', 'history'];
     const target = validPanels.includes(panelName) ? panelName : 'participants';
 
     $$('.tab').forEach(tab => {
@@ -3242,6 +3384,10 @@
       }
 
       showPanel(tab.dataset.tab, true);
+
+      if (tab.dataset.tab === 'coordinators') {
+        renderCoordinators();
+      }
     });
   });
 
@@ -3391,13 +3537,47 @@
     }
   });
 
+  async function addCoordinatorFromInput() {
+    const input = $('#coordinator-add-email');
+    const email = input?.value.trim() || '';
+
+    if (!email) {
+      setStatus('Enter the coordinator email to add.');
+      return;
+    }
+
+    try {
+      await window.BadmintonCloud.addCoordinator(email);
+      input.value = '';
+      setStatus(`Coordinator added: ${email.toLowerCase()}`);
+      await renderCoordinators();
+    } catch (error) {
+      setStatus(`Could not add coordinator: ${error.message}`);
+    }
+  }
+
+  $('#coordinator-add-btn').addEventListener('click', addCoordinatorFromInput);
+
+  $('#coordinator-add-email').addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    addCoordinatorFromInput();
+  });
+
   $('#cloud-signin').addEventListener('click', async () => {
     const email = $('#cloud-email').value.trim();
-    if (!email) { setStatus('Enter a coordinator email address first.'); return; }
+
+    if (!email) {
+      setStatus('Enter an approved coordinator email first.');
+      return;
+    }
+
     try {
       await window.BadmintonCloud.signInWithEmail(email);
-      setStatus('Sign-in link sent. Open the email, then return to this website.');
-    } catch (error) { setStatus(`Sign-in failed: ${error.message}`); }
+      setStatus('Approved email confirmed. Check that inbox for the secure sign-in link.');
+    } catch (error) {
+      setStatus(`Sign-in failed: ${error.message}`);
+    }
   });
 
   $('#cloud-signout').addEventListener('click', async () => {
@@ -3461,17 +3641,51 @@
 
   window.addEventListener('badminton-cloud-auth-change', async () => {
     const user = window.BadmintonCloud.getUser();
+
     if (user) {
-      const remembered = await window.BadmintonCloud.restoreRememberedWorkspace();
-      if (remembered) await activateCloudWorkspace(remembered, { loadState: true });
+      const approved = await window.BadmintonCloud.isCoordinatorEmail(user.email);
+
+      if (!approved) {
+        await window.BadmintonCloud.signOut();
+        historySource = 'local';
+        setStatus('This email is not approved as a coordinator.');
+      } else {
+        const remembered = await window.BadmintonCloud.restoreRememberedWorkspace();
+        if (remembered) await activateCloudWorkspace(remembered, { loadState: true });
+      }
     } else {
       historySource = 'local';
     }
+
     await renderCloudUi();
+    await renderCoordinators();
     await renderHistory();
   });
 
   $('#generate').addEventListener('click', generateMatches);
+
+  $('#reshuffle-matches').addEventListener('click', async () => {
+    await generateMatches();
+  });
+
+  $$('input[name="women-skill-adjustment"]').forEach(input => {
+    input.addEventListener('change', async event => {
+      if (!event.currentTarget.checked) return;
+
+      state.womenSkillAdjustmentValue =
+        normalizedWomenSkillAdjustmentValue(event.currentTarget.value);
+      state.womenSkillAdjustment = state.womenSkillAdjustmentValue > 0;
+
+      saveState(
+        state.womenSkillAdjustmentValue
+          ? `Women's balancing adjustment set to -${state.womenSkillAdjustmentValue}. Reshuffling matches.`
+          : `Women's balancing adjustment disabled. Reshuffling matches.`,
+        0
+      );
+
+      await generateMatches();
+    });
+  });
 
   $('#save-session').addEventListener('click', saveSessionToHistory);
   $('#save-session-matches').addEventListener('click', saveSessionToHistory);
@@ -3580,13 +3794,12 @@
     saveState('Session date saved.');
   });
 
-  ['courts','duration','rotation-min','mix','women-skill-adjustment'].forEach(id => {
+  ['courts','duration','rotation-min','mix'].forEach(id => {
     $('#' + id).addEventListener('change', () => {
       state.courts = Math.max(1, Number($('#courts').value) || 3);
       state.duration = Math.max(30, Number($('#duration').value) || 180);
       state.rotationMin = Math.max(10, Number($('#rotation-min').value) || 18);
       state.mix = $('#mix').value;
-      state.womenSkillAdjustment = $('#women-skill-adjustment')?.checked !== false;
 
       saveState('Session settings saved.');
       renderSession();
