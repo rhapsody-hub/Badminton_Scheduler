@@ -477,3 +477,193 @@ $$;
 -- authenticated `badminton-coordinator-admin` Edge Function. Prevent older
 -- browser builds from adding allowlist rows without provisioning credentials.
 revoke execute on function public.add_badminton_coordinator(text) from authenticated;
+
+
+-- ============================================================
+-- Owner-managed coordinator access across multiple workspaces
+-- ============================================================
+
+create or replace function public.list_owned_badminton_workspace_access()
+returns table(
+  workspace_id uuid,
+  workspace_name text,
+  coordinator_email text,
+  member_role text,
+  joined_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+stable
+as $$
+declare
+  v_caller_email text;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  v_caller_email := lower(coalesce((select auth.jwt() ->> 'email'), ''));
+
+  if not exists (
+    select 1
+    from public.badminton_coordinators c
+    where c.email = v_caller_email
+  ) then
+    raise exception 'Coordinator access required';
+  end if;
+
+  return query
+  select
+    w.id,
+    w.name,
+    lower(u.email),
+    wm.role,
+    wm.joined_at
+  from public.badminton_workspaces w
+  join public.badminton_workspace_members wm
+    on wm.workspace_id = w.id
+  join auth.users u
+    on u.id = wm.user_id
+  where w.owner_id = (select auth.uid())
+    and u.email is not null
+  order by w.created_at, lower(u.email);
+end;
+$$;
+
+revoke all on function public.list_owned_badminton_workspace_access()
+  from public, anon;
+grant execute on function public.list_owned_badminton_workspace_access()
+  to authenticated;
+
+create or replace function public.grant_badminton_workspace_access(
+  p_workspace_id uuid,
+  p_email text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_email text;
+  v_target_user_id uuid;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.badminton_workspaces w
+    where w.id = p_workspace_id
+      and w.owner_id = (select auth.uid())
+  ) then
+    raise exception 'Only the workspace owner can grant access';
+  end if;
+
+  v_email := lower(trim(coalesce(p_email, '')));
+
+  if not exists (
+    select 1
+    from public.badminton_coordinators c
+    where c.email = v_email
+  ) then
+    raise exception 'The email must be an approved coordinator first';
+  end if;
+
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_target_user_id is null then
+    raise exception 'No Supabase Auth account exists for this coordinator';
+  end if;
+
+  insert into public.badminton_workspace_members(
+    workspace_id,
+    user_id,
+    role
+  )
+  values (
+    p_workspace_id,
+    v_target_user_id,
+    case
+      when v_target_user_id = (select auth.uid()) then 'owner'
+      else 'coordinator'
+    end
+  )
+  on conflict (workspace_id, user_id)
+  do update set role =
+    case
+      when public.badminton_workspace_members.role = 'owner'
+        then 'owner'
+      else 'coordinator'
+    end;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.grant_badminton_workspace_access(uuid, text)
+  from public, anon;
+grant execute on function public.grant_badminton_workspace_access(uuid, text)
+  to authenticated;
+
+create or replace function public.revoke_badminton_workspace_access(
+  p_workspace_id uuid,
+  p_email text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_email text;
+  v_target_user_id uuid;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.badminton_workspaces w
+    where w.id = p_workspace_id
+      and w.owner_id = (select auth.uid())
+  ) then
+    raise exception 'Only the workspace owner can remove access';
+  end if;
+
+  v_email := lower(trim(coalesce(p_email, '')));
+
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_target_user_id is null then
+    return false;
+  end if;
+
+  if v_target_user_id = (select auth.uid()) then
+    raise exception 'The workspace owner cannot remove their own access';
+  end if;
+
+  delete from public.badminton_workspace_members wm
+  where wm.workspace_id = p_workspace_id
+    and wm.user_id = v_target_user_id
+    and wm.role <> 'owner';
+
+  return found;
+end;
+$$;
+
+revoke all on function public.revoke_badminton_workspace_access(uuid, text)
+  from public, anon;
+grant execute on function public.revoke_badminton_workspace_access(uuid, text)
+  to authenticated;

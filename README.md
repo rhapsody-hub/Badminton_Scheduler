@@ -921,3 +921,36 @@ The number of planned-match columns now follows the configured court count:
 - etc.
 
 These columns represent how many simultaneous match slots a rotation can contain. They are not fixed physical court assignments; actual court assignment still happens automatically when a match starts.
+
+
+## Automatic attendance reshuffle
+
+Attendance now drives the schedule immediately.
+
+Whenever attendance changes through:
+
+- an individual Present checkbox
+- **All present**
+- **Clear attendance**
+
+the app automatically regenerates the future schedule from the current attendee list.
+
+Matches that are already Playing or Completed are preserved during attendance-triggered reshuffles. They are also fed back into the scheduler's participation counts, last-played tracking, partner-repeat counts, and opponent-repeat counts so the remaining schedule stays fair and the original repeat-avoidance rules remain effective.
+
+If attendance falls below four people, future planned matches are cleared automatically while any already-started/completed matches remain intact.
+
+The manual **Reshuffle matches** button remains a full fresh reshuffle.
+
+
+## Multi-workspace coordinator access
+
+The Coordinators page now manages two separate concepts:
+
+1. **Approved coordinator account** — email/password account allowed to use the application.
+2. **Workspace access** — which workspaces that coordinator is actually a member of.
+
+Workspace owners can select any approved coordinator and grant/revoke access independently for every workspace they created. One coordinator may belong to many workspaces, and one workspace may contain many coordinators.
+
+After access is granted, the workspace is returned by the normal workspace list for that coordinator, so it appears after sign-in on any browser/device without requiring the join code.
+
+Only the workspace owner can grant or revoke owner-managed access. Owner access itself cannot be removed through this control.

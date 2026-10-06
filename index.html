@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=43" />
+  <link rel="stylesheet" href="styles.css?refresh=45" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -441,7 +441,7 @@
       <div class="attendance-generation-strip">
         <div>
           <strong id="matches-attendance-count">0 attending</strong>
-          <span>Only checked-in participants are used by the scheduler.</span>
+          <span>Attendance changes automatically rebuild the future schedule.</span>
         </div>
         <div
           id="matches-generation-message"
@@ -685,6 +685,35 @@
             ></div>
           </div>
 
+          <div class="coordinator-workspace-access-card">
+            <div class="coordinator-workspace-access-head">
+              <div>
+                <strong>Workspace access</strong>
+                <span>
+                  Assign approved coordinators to any workspace created by your account.
+                  Their assigned workspaces appear automatically after sign-in on any device.
+                </span>
+              </div>
+            </div>
+
+            <div class="coordinator-workspace-access-target">
+              <label>
+                Coordinator
+                <select id="workspace-access-coordinator" class="input"></select>
+              </label>
+            </div>
+
+            <div id="workspace-access-list" class="workspace-access-list"></div>
+
+            <div
+              id="workspace-access-feedback"
+              class="workspace-access-feedback"
+              role="status"
+              aria-live="polite"
+              hidden
+            ></div>
+          </div>
+
           <div id="coordinator-list" class="coordinator-list"></div>
         </div>
       </div>
@@ -706,9 +735,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=43" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=45" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=45" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=45" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=45" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

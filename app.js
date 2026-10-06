@@ -65,6 +65,7 @@
   let pendingCloudConflictState = null;
   let pendingCloudConflictWorkspace = null;
   let historySource = 'local';
+  let selectedWorkspaceAccessEmail = '';
   let selectedGroupId = null;
 
   const $ = (s) => document.querySelector(s);
@@ -1310,7 +1311,10 @@
     }
   }
 
-  async function generateMatches() {
+  async function generateMatches({
+    preserveStartedMatches = false,
+    attendanceTriggered = false
+  } = {}) {
     const button = $('#reshuffle-matches');
 
     try {
@@ -1358,13 +1362,29 @@
       const participantCount = participants.length;
 
       if (participantCount < 4) {
-        const message =
+        const preserved = preserveStartedMatches
+          ? state.matches.filter(match => hasMatchStarted(match))
+          : [];
+
+        state.matches = preserved;
+        saveState('', 0);
+        renderAll();
+
+        const baseMessage =
           participantCount === 0
-            ? 'No participants are marked present. Check attendance first.'
-            : `Only ${participantCount} participant${participantCount === 1 ? '' : 's'} marked present. At least 4 attendees are required.`;
+            ? 'No participants are marked present.'
+            : `Only ${participantCount} participant${participantCount === 1 ? '' : 's'} marked present.`;
+
+        const message =
+          `${baseMessage} At least 4 attendees are required. ` +
+          (
+            preserved.length
+              ? `${preserved.length} started/completed match${preserved.length === 1 ? '' : 'es'} kept; future matches cleared.`
+              : 'Planned matches cleared.'
+          );
 
         setStatus(message);
-        setMatchesGenerationMessage(message, 'error');
+        setMatchesGenerationMessage(message, 'warning');
 
         const attendanceDetails = $('#matches-attendance-details');
         if (attendanceDetails) attendanceDetails.open = true;
@@ -1379,48 +1399,107 @@
 
       // Attendance is the generator pool. The invited session participant list
       // remains intact and attendance itself is never reset by generation.
-      state.matches = [];
-
       const rounds = Math.max(1, Math.floor(state.duration / state.rotationMin));
-      const slotsPerRound = state.courts * 4;
 
-    const plays = new Map(participants.map(m => [m.id, 0]));
-    const last = new Map(participants.map(m => [m.id, -99]));
-    const partnerCount = new Map();
-    const opponentCount = new Map();
-    const matches = [];
+      const preservedMatches = preserveStartedMatches
+        ? state.matches.filter(match => hasMatchStarted(match))
+        : [];
 
-    const pairKey = (a, b) => [a, b].sort((x,y) => x-y).join('-');
+      const preservedByRound = preservedMatches.reduce((map, match) => {
+        const round = Number(match.round) || 1;
+        if (!map.has(round)) map.set(round, []);
+        map.get(round).push(match);
+        return map;
+      }, new Map());
 
-    for (let round = 1; round <= rounds; round++) {
-      const tieMap = randomTieMap(participants);
+      const plays = new Map(participants.map(m => [m.id, 0]));
+      const last = new Map(participants.map(m => [m.id, -99]));
+      const partnerCount = new Map();
+      const opponentCount = new Map();
+      const matches = [...preservedMatches];
 
-      // Participation count remains the strongest priority.
-      // Waiting time is second. Randomness only breaks otherwise-similar choices.
-      let candidates = [...participants]
-        .sort((a,b) => {
-          const pa = plays.get(a.id);
-          const pb = plays.get(b.id);
-          if (pa !== pb) return pa - pb;
+      const pairKey = (a, b) => [a, b].sort((x,y) => x-y).join('-');
 
-          const wa = round - last.get(a.id);
-          const wb = round - last.get(b.id);
-          if (wa !== wb) return wb - wa;
+      // Started/completed matches remain part of the scheduling history so
+      // attendance-driven reshuffles do not reset fairness or repeat tracking.
+      preservedMatches.forEach(match => {
+        const ids = match.players.map(Number);
 
-          // Keep broad tier composition, but don't make it deterministic.
-          const tierDiff = effectiveSkillScore(b) - effectiveSkillScore(a);
-          if (Math.abs(tierDiff) >= 2) return tierDiff;
+        ids.forEach(id => {
+          if (plays.has(id)) {
+            plays.set(id, (plays.get(id) || 0) + 1);
+            last.set(id, Math.max(last.get(id) || -99, Number(match.round) || 1));
+          }
+        });
 
-          return tieMap.get(a.id) - tieMap.get(b.id);
-        })
-        .slice(0, Math.min(slotsPerRound, participants.length));
+        if (ids.length === 4) {
+          [
+            [ids[0], ids[1]],
+            [ids[2], ids[3]]
+          ].forEach(([a, b]) => {
+            const key = pairKey(a, b);
+            partnerCount.set(key, (partnerCount.get(key) || 0) + 1);
+          });
 
-      // Shuffle selected players before court assignment so every Generate click
-      // produces a genuinely different lineup while preserving the same fair pool.
-      candidates = shuffleCopy(candidates);
+          [
+            [ids[0], ids[2]], [ids[0], ids[3]],
+            [ids[1], ids[2]], [ids[1], ids[3]]
+          ].forEach(([a, b]) => {
+            const key = pairKey(a, b);
+            opponentCount.set(key, (opponentCount.get(key) || 0) + 1);
+          });
+        }
+      });
 
-      for (let court = 1; court <= state.courts; court++) {
-        if (candidates.length < 4) break;
+      for (let round = 1; round <= rounds; round++) {
+        const tieMap = randomTieMap(participants);
+        const preservedThisRound = preservedByRound.get(round) || [];
+
+        const occupiedPlayerIds = new Set(
+          preservedThisRound.flatMap(match => match.players.map(Number))
+        );
+
+        const usedSlots = new Set(
+          preservedThisRound.map(match => Number(match.court) || 1)
+        );
+
+        const openSlots = Array.from(
+          { length: state.courts },
+          (_, index) => index + 1
+        ).filter(slot => !usedSlots.has(slot));
+
+        if (!openSlots.length) continue;
+
+        // Participation count remains the strongest priority.
+        // Waiting time is second. Randomness only breaks otherwise-similar choices.
+        let candidates = participants
+          .filter(player => !occupiedPlayerIds.has(player.id))
+          .sort((a,b) => {
+            const pa = plays.get(a.id);
+            const pb = plays.get(b.id);
+            if (pa !== pb) return pa - pb;
+
+            const wa = round - last.get(a.id);
+            const wb = round - last.get(b.id);
+            if (wa !== wb) return wb - wa;
+
+            // Keep broad tier composition, but don't make it deterministic.
+            const tierDiff = effectiveSkillScore(b) - effectiveSkillScore(a);
+            if (Math.abs(tierDiff) >= 2) return tierDiff;
+
+            return tieMap.get(a.id) - tieMap.get(b.id);
+          })
+          .slice(
+            0,
+            Math.min(openSlots.length * 4, participants.length)
+          );
+
+        // Shuffle selected players before slot assignment so every reshuffle
+        // produces a different lineup while preserving the same fair pool.
+        candidates = shuffleCopy(candidates);
+
+        for (const court of openSlots) {
+          if (candidates.length < 4) break;
 
         let pref = 'men';
 
@@ -1544,7 +1623,12 @@
         return;
       }
 
-      state.matches = matches;
+      state.matches = matches
+        .slice()
+        .sort((a, b) =>
+          Number(a.round) - Number(b.round) ||
+          Number(a.court) - Number(b.court)
+        );
 
       saveState('', 0);
       renderAll();
@@ -1553,9 +1637,28 @@
       const minMatches = Math.min(...counts);
       const maxMatches = Math.max(...counts);
 
+      const futureMatchCount =
+        state.matches.filter(match => !hasMatchStarted(match)).length;
+
+      const preservedMatchCount =
+        state.matches.filter(match => hasMatchStarted(match)).length;
+
       const message =
-        `Generated ${matches.length} matches for ${participantCount} attending participants. ` +
-        `Participation range: ${minMatches}–${maxMatches} matches.`;
+        attendanceTriggered
+          ? (
+              `Attendance updated. Future schedule rebuilt for ${participantCount} attendees: ` +
+              `${futureMatchCount} future match${futureMatchCount === 1 ? '' : 'es'}` +
+              (
+                preservedMatchCount
+                  ? `, ${preservedMatchCount} started/completed kept`
+                  : ''
+              ) +
+              `. Participation range: ${minMatches}–${maxMatches}.`
+            )
+          : (
+              `Generated ${state.matches.length} matches for ${participantCount} attending participants. ` +
+              `Participation range: ${minMatches}–${maxMatches} matches.`
+            );
 
       setStatus(message);
       setMatchesGenerationMessage(message, 'success');
@@ -3124,6 +3227,15 @@
     renderSessionParticipants();
   }
 
+  async function autoReshuffleFromAttendance() {
+    saveState('', 0);
+
+    await generateMatches({
+      preserveStartedMatches: true,
+      attendanceTriggered: true
+    });
+  }
+
   function renderAttendance() {
     const attendanceList = $('#attendance-list');
     const summary = $('#live-summary');
@@ -3177,23 +3289,12 @@
 
       member.present = event.target.checked;
 
-      const attendeeCount = getAttendingSessionMembers().length;
-      const hadSchedule = state.matches.length > 0;
-
-      saveState(
-        hadSchedule
-          ? `Attendance updated: ${attendeeCount} present. Reshuffle matches to rebuild the schedule from current attendees.`
-          : `Attendance updated: ${attendeeCount} present.`
+      setMatchesGenerationMessage(
+        `Attendance updated for ${member.name}. Rebuilding matches automatically…`,
+        'working'
       );
 
-      if (hadSchedule) {
-        setMatchesGenerationMessage(
-          `Attendance changed. Press Reshuffle matches to rebuild from the ${attendeeCount} people currently present.`,
-          'warning'
-        );
-      }
-
-      renderAll();
+      autoReshuffleFromAttendance();
     }));
 
     const playing = state.matches
@@ -3540,11 +3641,20 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   }
 
   async function renderCoordinators() {
+    const panel = $('#coordinators');
     const note = $('#coordinator-access-note');
     const content = $('#coordinator-manager-content');
     const list = $('#coordinator-list');
+    const workspaceTarget = $('#workspace-access-coordinator');
+    const workspaceList = $('#workspace-access-list');
 
-    if (!note || !content || !list) return;
+    if (!note || !content || !list || !workspaceTarget || !workspaceList) {
+      return;
+    }
+
+    // Avoid network requests on every unrelated render. Opening the
+    // Coordinators tab explicitly calls this function.
+    if (panel?.hidden) return;
 
     if (!window.BadmintonCloud?.isConfigured()) {
       note.textContent = 'Supabase is not configured.';
@@ -3556,28 +3666,38 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     const user = window.BadmintonCloud.getUser();
 
     if (!user) {
-      note.textContent = 'Sign in with an approved coordinator email to manage coordinator access.';
+      note.textContent =
+        'Sign in with an approved coordinator email to manage coordinator access.';
       note.hidden = false;
       content.hidden = true;
       list.innerHTML = '';
+      workspaceList.innerHTML = '';
       return;
     }
 
     try {
-      const coordinators = await window.BadmintonCloud.listCoordinators();
+      const [coordinators, accessRows] = await Promise.all([
+        window.BadmintonCloud.listCoordinators(),
+        window.BadmintonCloud.listOwnedWorkspaceAccess()
+      ]);
 
       note.hidden = true;
       content.hidden = false;
 
+      const currentEmail = String(user.email || '').toLowerCase();
+
+      // ------------------------------------------------------
+      // Password target selector
+      // ------------------------------------------------------
       const passwordTarget = $('#coordinator-password-email');
+
       if (passwordTarget) {
         const previousTarget = passwordTarget.value;
 
         passwordTarget.innerHTML = coordinators.length
           ? coordinators.map(item => {
               const email = String(item.email || '').toLowerCase();
-              const isSelf =
-                email === String(user.email || '').toLowerCase();
+              const isSelf = email === currentEmail;
 
               return `<option value="${esc(email)}">${esc(email)}${isSelf ? ' · You' : ''}</option>`;
             }).join('')
@@ -3587,40 +3707,279 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
           item => String(item.email || '').toLowerCase() === previousTarget
         );
 
-        const selfEmail = String(user.email || '').toLowerCase();
-
         if (validPrevious) {
           passwordTarget.value = previousTarget;
-        } else if (coordinators.some(
-          item => String(item.email || '').toLowerCase() === selfEmail
-        )) {
-          passwordTarget.value = selfEmail;
+        } else if (
+          coordinators.some(
+            item => String(item.email || '').toLowerCase() === currentEmail
+          )
+        ) {
+          passwordTarget.value = currentEmail;
         }
       }
 
+      // ------------------------------------------------------
+      // Owned workspace access matrix
+      // ------------------------------------------------------
+      const workspaceMap = new Map();
+
+      accessRows.forEach(row => {
+        const workspaceId = String(row.workspace_id || '');
+        if (!workspaceId) return;
+
+        if (!workspaceMap.has(workspaceId)) {
+          workspaceMap.set(workspaceId, {
+            id: workspaceId,
+            name: String(row.workspace_name || 'Workspace'),
+            members: new Map()
+          });
+        }
+
+        const email = String(row.coordinator_email || '').toLowerCase();
+        if (email) {
+          workspaceMap.get(workspaceId).members.set(email, {
+            role: String(row.member_role || 'coordinator'),
+            joinedAt: row.joined_at || null
+          });
+        }
+      });
+
+      const ownedWorkspaces = [...workspaceMap.values()];
+
+      const coordinatorEmails = coordinators.map(item =>
+        String(item.email || '').toLowerCase()
+      );
+
+      if (
+        !selectedWorkspaceAccessEmail ||
+        !coordinatorEmails.includes(selectedWorkspaceAccessEmail)
+      ) {
+        selectedWorkspaceAccessEmail =
+          coordinatorEmails.includes(currentEmail)
+            ? currentEmail
+            : (coordinatorEmails[0] || '');
+      }
+
+      workspaceTarget.innerHTML = coordinators.length
+        ? coordinators.map(item => {
+            const email = String(item.email || '').toLowerCase();
+            const isSelf = email === currentEmail;
+
+            return `
+              <option
+                value="${esc(email)}"
+                ${email === selectedWorkspaceAccessEmail ? 'selected' : ''}
+              >${esc(email)}${isSelf ? ' · You' : ''}</option>
+            `;
+          }).join('')
+        : '<option value="">No approved coordinators</option>';
+
+      const setWorkspaceFeedback = (message = '', type = 'info') => {
+        const element = $('#workspace-access-feedback');
+        if (!element) return;
+
+        if (!message) {
+          element.textContent = '';
+          element.className = 'workspace-access-feedback';
+          element.hidden = true;
+          return;
+        }
+
+        element.textContent = message;
+        element.className = `workspace-access-feedback ${type}`;
+        element.hidden = false;
+      };
+
+      const renderWorkspaceAccessOptions = () => {
+        const targetEmail =
+          String(workspaceTarget.value || '').trim().toLowerCase();
+
+        selectedWorkspaceAccessEmail = targetEmail;
+
+        if (!ownedWorkspaces.length) {
+          workspaceList.innerHTML = `
+            <div class="workspace-access-empty">
+              This account has not created any workspaces yet.
+              Create a workspace first, then assign coordinators here.
+            </div>
+          `;
+          return;
+        }
+
+        if (!targetEmail) {
+          workspaceList.innerHTML = `
+            <div class="workspace-access-empty">
+              Add or select a coordinator first.
+            </div>
+          `;
+          return;
+        }
+
+        workspaceList.innerHTML = ownedWorkspaces.map(workspace => {
+          const membership = workspace.members.get(targetEmail);
+          const isOwner = membership?.role === 'owner';
+          const hasAccess = Boolean(membership);
+
+          return `
+            <label class="workspace-access-row">
+              <input
+                class="workspace-access-toggle"
+                type="checkbox"
+                data-workspace-id="${esc(workspace.id)}"
+                data-workspace-name="${esc(workspace.name)}"
+                ${hasAccess ? 'checked' : ''}
+                ${isOwner ? 'disabled' : ''}
+              />
+
+              <span class="workspace-access-name">
+                <strong>${esc(workspace.name)}</strong>
+                <small>
+                  ${
+                    isOwner
+                      ? 'Owner · access cannot be removed'
+                      : (hasAccess ? 'Coordinator access granted' : 'No access')
+                  }
+                </small>
+              </span>
+
+              <span class="workspace-access-state ${hasAccess ? 'granted' : 'not-granted'}">
+                ${isOwner ? 'Owner' : (hasAccess ? 'Access' : 'No access')}
+              </span>
+            </label>
+          `;
+        }).join('');
+
+        $$('.workspace-access-toggle').forEach(toggle => {
+          toggle.addEventListener('change', async event => {
+            const checkbox = event.currentTarget;
+            const workspaceId = checkbox.dataset.workspaceId;
+            const workspaceName = checkbox.dataset.workspaceName || 'workspace';
+            const enabled = checkbox.checked;
+            const email = selectedWorkspaceAccessEmail;
+
+            checkbox.disabled = true;
+
+            setWorkspaceFeedback(
+              enabled
+                ? `Adding ${email} to ${workspaceName}…`
+                : `Removing ${email} from ${workspaceName}…`,
+              'working'
+            );
+
+            try {
+              if (enabled) {
+                await window.BadmintonCloud.grantWorkspaceAccess(
+                  workspaceId,
+                  email
+                );
+              } else {
+                await window.BadmintonCloud.revokeWorkspaceAccess(
+                  workspaceId,
+                  email
+                );
+              }
+
+              setWorkspaceFeedback(
+                enabled
+                  ? `${email} can now open ${workspaceName} from any signed-in device.`
+                  : `${email} no longer has access to ${workspaceName}.`,
+                'success'
+              );
+
+              setStatus(
+                enabled
+                  ? `Workspace access granted: ${email} → ${workspaceName}`
+                  : `Workspace access removed: ${email} → ${workspaceName}`
+              );
+
+              await renderCoordinators();
+            } catch (error) {
+              checkbox.checked = !enabled;
+              checkbox.disabled = false;
+
+              setWorkspaceFeedback(
+                `Could not change workspace access: ${error.message}`,
+                'error'
+              );
+
+              setStatus(
+                `Could not change workspace access: ${error.message}`
+              );
+            }
+          });
+        });
+      };
+
+      workspaceTarget.addEventListener('change', () => {
+        selectedWorkspaceAccessEmail =
+          String(workspaceTarget.value || '').toLowerCase();
+
+        setWorkspaceFeedback('');
+        renderWorkspaceAccessOptions();
+      });
+
+      renderWorkspaceAccessOptions();
+
+      // ------------------------------------------------------
+      // Coordinator list
+      // ------------------------------------------------------
       list.innerHTML = coordinators.length
         ? coordinators.map(item => {
-            const isSelf =
-              String(item.email || '').toLowerCase() ===
-              String(user.email || '').toLowerCase();
+            const email = String(item.email || '').toLowerCase();
+            const isSelf = email === currentEmail;
+
+            const workspaceCount = ownedWorkspaces.filter(
+              workspace => workspace.members.has(email)
+            ).length;
 
             return `
               <div class="coordinator-row">
-                <div>
-                  <strong>${esc(item.email)}</strong>
-                  ${isSelf ? '<span class="coordinator-you">You</span>' : ''}
+                <div class="coordinator-row-main">
+                  <div class="coordinator-row-email">
+                    <strong>${esc(email)}</strong>
+                    ${isSelf ? '<span class="coordinator-you">You</span>' : ''}
+                  </div>
+
+                  <span class="coordinator-workspace-count">
+                    ${workspaceCount} of ${ownedWorkspaces.length}
+                    owned workspace${ownedWorkspaces.length === 1 ? '' : 's'}
+                  </span>
                 </div>
 
-                <button
-                  class="btn danger coordinator-remove"
-                  type="button"
-                  data-email="${esc(item.email)}"
-                  ${isSelf ? 'disabled title="You cannot remove your own coordinator email"' : ''}
-                >Remove</button>
+                <div class="coordinator-row-actions">
+                  <button
+                    class="btn coordinator-manage-workspaces"
+                    type="button"
+                    data-email="${esc(email)}"
+                  >Manage workspaces</button>
+
+                  <button
+                    class="btn danger coordinator-remove"
+                    type="button"
+                    data-email="${esc(email)}"
+                    ${isSelf ? 'disabled title="You cannot remove your own coordinator email"' : ''}
+                  >Remove</button>
+                </div>
               </div>
             `;
           }).join('')
         : '<div class="coordinator-empty">No coordinator emails found.</div>';
+
+      $$('.coordinator-manage-workspaces').forEach(button => {
+        button.addEventListener('click', event => {
+          selectedWorkspaceAccessEmail =
+            String(event.currentTarget.dataset.email || '').toLowerCase();
+
+          workspaceTarget.value = selectedWorkspaceAccessEmail;
+          setWorkspaceFeedback('');
+          renderWorkspaceAccessOptions();
+
+          $('.coordinator-workspace-access-card')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        });
+      });
 
       $$('.coordinator-remove').forEach(button => {
         button.addEventListener('click', async event => {
@@ -3634,6 +3993,11 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
           try {
             await window.BadmintonCloud.removeCoordinator(email);
             setStatus(`Coordinator removed: ${email}`);
+
+            if (selectedWorkspaceAccessEmail === email) {
+              selectedWorkspaceAccessEmail = currentEmail;
+            }
+
             await renderCoordinators();
           } catch (error) {
             setStatus(`Could not remove coordinator: ${error.message}`);
@@ -3907,8 +4271,11 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       passwordInput.value = '';
       confirmInput.value = '';
 
+      selectedWorkspaceAccessEmail = email.toLowerCase();
+
       const message =
-        `Coordinator created and approved: ${email.toLowerCase()}. They can sign in immediately with the password you provided.`;
+        `Coordinator created and approved: ${email.toLowerCase()}. ` +
+        `Choose their workspace access below; they can sign in immediately with the password you provided.`;
 
       setStatus(message);
       setCoordinatorAddFeedback(message, 'success');
@@ -4230,7 +4597,10 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   $('#generate').addEventListener('click', prepareSessionForAttendance);
 
   $('#reshuffle-matches').addEventListener('click', async () => {
-    await generateMatches();
+    await generateMatches({
+      preserveStartedMatches: false,
+      attendanceTriggered: false
+    });
   });
 
   $$('input[name="women-skill-adjustment"]').forEach(input => {
@@ -4248,7 +4618,10 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         0
       );
 
-      await generateMatches();
+      await generateMatches({
+        preserveStartedMatches: true,
+        attendanceTriggered: false
+      });
     });
   });
 
@@ -4303,7 +4676,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     renderAll();
   });
 
-  $('#clear-attendance').addEventListener('click', () => {
+  $('#clear-attendance').addEventListener('click', async () => {
     const playingIds = getPlayingPlayerIds();
 
     getSessionMembers().forEach(member => {
@@ -4312,44 +4685,25 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       }
     });
 
-    const attendeeCount = getAttendingSessionMembers().length;
-
-    saveState(
-      playingIds.size
-        ? `Attendance cleared for waiting players. ${attendeeCount} currently playing participants were kept present.`
-        : 'Attendance cleared. Generate matches after checking in at least 4 participants.'
-    );
-
     setMatchesGenerationMessage(
-      playingIds.size
-        ? 'Attendance changed. Reshuffle matches when you want a new future schedule.'
-        : 'No attendees selected. Check attendance before generating matches.',
-      playingIds.size ? 'warning' : 'info'
+      'Attendance cleared. Rebuilding the future schedule automatically…',
+      'working'
     );
 
-    renderAll();
+    await autoReshuffleFromAttendance();
   });
 
-  $('#all-present').addEventListener('click', () => {
-    getSessionMembers().forEach(m => m.present = true);
+  $('#all-present').addEventListener('click', async () => {
+    getSessionMembers().forEach(member => {
+      member.present = true;
+    });
 
-    const attendeeCount = getAttendingSessionMembers().length;
-    const hadSchedule = state.matches.length > 0;
-
-    saveState(
-      hadSchedule
-        ? `All ${attendeeCount} session participants marked present. Reshuffle matches to use the updated attendance.`
-        : `All ${attendeeCount} session participants marked present.`
+    setMatchesGenerationMessage(
+      'All session participants marked present. Rebuilding matches automatically…',
+      'working'
     );
 
-    if (hadSchedule) {
-      setMatchesGenerationMessage(
-        `Attendance changed. Press Reshuffle matches to rebuild from all ${attendeeCount} attendees.`,
-        'warning'
-      );
-    }
-
-    renderAll();
+    await autoReshuffleFromAttendance();
   });
 
   $('#clear-history').addEventListener('click', async () => {

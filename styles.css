@@ -4839,3 +4839,238 @@ label {
       calc(var(--planned-column-count, 1) * 215px);
   }
 }
+
+
+/* =========================================================
+   Owner-managed coordinator workspace access
+   ========================================================= */
+
+.coordinator-workspace-access-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.coordinator-workspace-access-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.coordinator-workspace-access-head > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.coordinator-workspace-access-head strong {
+  font-size: 0.72rem;
+}
+
+.coordinator-workspace-access-head span {
+  color: var(--muted);
+  font-size: 0.59rem;
+  line-height: 1.4;
+}
+
+.coordinator-workspace-access-target {
+  max-width: 560px;
+}
+
+.coordinator-workspace-access-target label {
+  display: block;
+  color: #536273;
+  font-size: 0.61rem;
+  font-weight: 800;
+}
+
+#workspace-access-coordinator {
+  width: 100%;
+  min-height: 42px;
+  height: 42px;
+  margin-top: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: normal;
+}
+
+.workspace-access-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+  gap: 7px;
+}
+
+.workspace-access-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 7px 9px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.workspace-access-row:hover {
+  border-color: #b9c8da;
+}
+
+.workspace-access-row input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+}
+
+.workspace-access-row input:disabled {
+  cursor: not-allowed;
+}
+
+.workspace-access-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.workspace-access-name strong {
+  overflow: hidden;
+  color: #25374b;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-access-name small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.55rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-access-state {
+  flex: 0 0 auto;
+  min-width: 61px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.53rem;
+  font-weight: 900;
+}
+
+.workspace-access-state.granted {
+  background: #edf7ef;
+  color: #2e6b36;
+}
+
+.workspace-access-state.not-granted {
+  background: #f0f2f5;
+  color: #748092;
+}
+
+.workspace-access-feedback {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid #d8dfe7;
+  border-radius: 7px;
+  background: #fff;
+  color: #44505f;
+  font-size: 0.61rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.workspace-access-feedback.working {
+  border-color: #b9ccec;
+  background: #f2f6fd;
+  color: #365f9d;
+}
+
+.workspace-access-feedback.success {
+  border-color: #afd5b4;
+  background: #f1faf2;
+  color: #2e6b36;
+}
+
+.workspace-access-feedback.error {
+  border-color: #e2b4b4;
+  background: #fff3f3;
+  color: #962f2f;
+}
+
+.workspace-access-feedback[hidden] {
+  display: none !important;
+}
+
+.workspace-access-empty {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: 1px dashed #cad3de;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.coordinator-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.coordinator-row-email {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coordinator-workspace-count {
+  color: var(--muted);
+  font-size: 0.55rem;
+}
+
+.coordinator-row-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coordinator-manage-workspaces {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .workspace-access-list {
+    grid-template-columns: 1fr;
+  }
+
+  .coordinator-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .coordinator-row-actions {
+    width: 100%;
+  }
+
+  .coordinator-row-actions .btn {
+    flex: 1 1 0;
+  }
+}
