@@ -635,3 +635,20 @@ A Session no longer treats an imported Group as a one-time copy.
 - Completed matches are preserved; uncompleted matches involving a removed participant are removed.
 
 For older sessions, if the existing Session participant list exactly matches a Group before a Group edit, the app automatically recognizes that Group as the Session source.
+
+
+## Simplified Matches page
+
+The Matches page is now organized around live operation:
+
+1. Compact status counters
+2. **Playing Now**
+3. **Up Next**
+4. Collapsed Attendance
+5. Collapsed Waiting / Blocked
+6. Collapsed Player Match Counts
+7. Collapsed Planned Schedule
+
+This keeps upcoming playable matches near the top of the page instead of below the full attendance list.
+
+Export Excel and Save Session remain at the top. Confirm/Unconfirm, Hide Completed, the skill legend, and the full rotation grid are now inside Planned Schedule.

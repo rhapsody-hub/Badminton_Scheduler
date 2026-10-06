@@ -3285,3 +3285,308 @@ label {
   opacity: 0.7;
   cursor: wait;
 }
+
+
+/* =========================================================
+   Simplified Matches page — live first
+   ========================================================= */
+
+.matches-simple-head {
+  margin-bottom: 7px;
+}
+
+.matches-simple-head p {
+  margin-bottom: 0;
+}
+
+.live-primary-toolbar {
+  gap: 6px;
+}
+
+.live-summary-strip {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+
+.live-summary-strip .summary-card {
+  min-width: 92px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.live-summary-strip .summary-card .value {
+  font-size: 0.84rem;
+  line-height: 1;
+}
+
+.live-summary-strip .summary-card .label {
+  font-size: 0.59rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.matches-live-section {
+  margin-top: 8px;
+}
+
+.matches-up-next {
+  margin-top: 11px;
+}
+
+.compact-live-head {
+  margin-bottom: 6px;
+}
+
+.compact-live-head h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.compact-live-head p {
+  margin: 1px 0 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.court-status-grid-compact {
+  gap: 7px;
+}
+
+.court-status-grid-compact .court-live-card {
+  padding: 8px;
+  min-height: 0;
+}
+
+.court-status-grid-compact .court-live-head {
+  margin-bottom: 5px;
+}
+
+.court-status-grid-compact .court-live-teams {
+  gap: 4px;
+  margin: 5px 0;
+}
+
+.court-status-grid-compact .court-live-actions {
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.court-status-grid-compact .court-live-actions .btn {
+  min-height: 29px;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.61rem;
+}
+
+.available-match-grid-compact {
+  gap: 7px;
+}
+
+.available-match-grid-compact .available-match-card {
+  padding: 8px;
+  border-radius: 9px;
+}
+
+.available-match-grid-compact .available-match-head {
+  margin-bottom: 5px;
+}
+
+.available-match-grid-compact .available-priority {
+  font-size: 0.54rem;
+}
+
+.available-match-grid-compact .available-count-note {
+  margin-top: 1px;
+  font-size: 0.53rem;
+}
+
+.available-match-grid-compact .available-teams-grid {
+  gap: 5px;
+  margin: 5px 0;
+}
+
+.available-match-grid-compact .available-player-select,
+.available-match-grid-compact .available-court-select {
+  min-height: 29px;
+  height: 29px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 0.62rem;
+}
+
+.available-match-grid-compact .available-match-foot {
+  margin-top: 5px;
+}
+
+.available-match-grid-compact .start-match {
+  min-height: 30px;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.62rem;
+}
+
+/* Secondary operational information stays available without occupying
+   vertical space until the coordinator needs it. */
+.matches-collapsible {
+  margin-top: 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.matches-collapsible > summary {
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+  user-select: none;
+}
+
+.matches-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.matches-collapsible > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.matches-collapsible[open] > summary::after {
+  content: "−";
+}
+
+.matches-summary-note {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.matches-collapsible-body {
+  padding: 0 9px 9px;
+  border-top: 1px solid #edf0f3;
+}
+
+.compact-attendance-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 7px 0;
+}
+
+.compact-attendance-actions .btn {
+  min-height: 29px;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.61rem;
+}
+
+.attendance-list-compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px 7px;
+}
+
+.attendance-list-compact .attendance-row {
+  min-height: 32px;
+  padding: 3px 5px;
+}
+
+.simplified-match-count-panel {
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.planned-schedule-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0 5px;
+}
+
+.planned-schedule-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.planned-schedule-actions .btn {
+  min-height: 30px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.62rem;
+}
+
+.planned-skill-legend {
+  margin: 3px 0 7px;
+}
+
+/* Keep "Up Next" visible quickly on desktop by fitting more cards per row. */
+@media (min-width: 1050px) {
+  .available-match-grid-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .attendance-list-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .matches-summary-note {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .matches-simple-head {
+    align-items: stretch;
+  }
+
+  .live-primary-toolbar {
+    width: 100%;
+  }
+
+  .live-primary-toolbar .btn {
+    flex: 1 1 0;
+  }
+
+  .live-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .live-summary-strip .summary-card {
+    min-width: 0;
+    border-radius: 8px;
+  }
+
+  .attendance-list-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .planned-schedule-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .planned-schedule-actions {
+    width: 100%;
+  }
+
+  .planned-schedule-actions .btn {
+    flex: 1 1 0;
+  }
+}
