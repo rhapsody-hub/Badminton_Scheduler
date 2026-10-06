@@ -4182,3 +4182,85 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Coordinator credential provisioning */
+.coordinator-add-row {
+  grid-template-columns: minmax(190px, 1.2fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
+}
+
+.coordinator-add-row label {
+  min-width: 0;
+}
+
+.coordinator-add-feedback {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin-top: 7px;
+  padding: 6px 9px;
+  border: 1px solid #d8dfe7;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #44505f;
+  font-size: 0.61rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.coordinator-add-feedback.warning {
+  border-color: #ead49c;
+  background: #fff9e9;
+  color: #795d18;
+}
+
+.coordinator-add-feedback.working {
+  border-color: #b9ccec;
+  background: #f2f6fd;
+  color: #365f9d;
+}
+
+.coordinator-add-feedback.success {
+  border-color: #afd5b4;
+  background: #f1faf2;
+  color: #2e6b36;
+}
+
+.coordinator-add-feedback.error {
+  border-color: #e2b4b4;
+  background: #fff3f3;
+  color: #962f2f;
+}
+
+.coordinator-add-feedback[hidden] {
+  display: none !important;
+}
+
+.coordinator-password-target {
+  max-width: 520px;
+}
+
+.coordinator-password-target label {
+  display: block;
+}
+
+.coordinator-password-target .input {
+  width: 100%;
+  height: 36px;
+}
+
+@media (max-width: 980px) {
+  .coordinator-add-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .coordinator-add-row .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .coordinator-add-row {
+    grid-template-columns: 1fr;
+  }
+}

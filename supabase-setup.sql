@@ -471,3 +471,9 @@ begin
   return v_workspace_id;
 end;
 $$;
+
+
+-- Coordinator creation now requires an initial password and is handled by the
+-- authenticated `badminton-coordinator-admin` Edge Function. Prevent older
+-- browser builds from adding allowlist rows without provisioning credentials.
+revoke execute on function public.add_badminton_coordinator(text) from authenticated;

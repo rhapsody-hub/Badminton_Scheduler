@@ -826,3 +826,18 @@ The Coordinators page now requires all three fields before changing the signed-i
 The current password is not checked only in the browser. The app re-authenticates the signed-in coordinator against Supabase using the current email + current password. `updateUser({ password })` runs only after that verification succeeds.
 
 The page reports incorrect current passwords, mismatched new-password confirmation, password-length validation, progress, and successful changes directly beside the password form.
+
+
+## Coordinator credential management
+
+### Add coordinator with password
+
+Adding a coordinator now requires an email, an initial password, and password confirmation. The site calls the authenticated `badminton-coordinator-admin` Supabase Edge Function, which verifies the caller is an approved coordinator, creates/provisions the Supabase Auth user with the supplied password, confirms the Auth email, and adds the email to the coordinator allowlist.
+
+The old password-less coordinator-add RPC is disabled for normal authenticated browser clients.
+
+### Change another coordinator's password
+
+The password tool now includes a coordinator selector. A signed-in coordinator can change any approved coordinator's password only when the selected coordinator's valid current password is supplied.
+
+Verification uses a separate, non-persistent Supabase client so checking the other coordinator's credentials does not replace the main signed-in coordinator session.

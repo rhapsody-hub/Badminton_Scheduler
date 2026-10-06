@@ -65,14 +65,33 @@
     return data;
   }
 
-  async function changeOwnPassword(currentPassword, newPassword) {
+  async function changeCoordinatorPassword(
+    email,
+    currentPassword,
+    newPassword
+  ) {
     if (!client || !user) throw new Error('Sign in first.');
 
+    const normalized = String(email || '').trim().toLowerCase();
     const currentSecret = String(currentPassword || '');
     const nextSecret = String(newPassword || '');
 
+    if (!normalized) {
+      throw new Error('Choose a coordinator email.');
+    }
+
+    const callerApproved = await isCoordinatorEmail(user.email);
+    if (!callerApproved) {
+      throw new Error('Coordinator access required.');
+    }
+
+    const targetApproved = await isCoordinatorEmail(normalized);
+    if (!targetApproved) {
+      throw new Error('The selected email is not an approved coordinator.');
+    }
+
     if (!currentSecret) {
-      throw new Error('Enter your current password.');
+      throw new Error("Enter the selected coordinator's current password.");
     }
 
     if (nextSecret.length < 8) {
@@ -83,42 +102,50 @@
       throw new Error('New password must be different from the current password.');
     }
 
-    const currentUserId = user.id;
-    const currentEmail = String(user.email || '').trim().toLowerCase();
+    const tempClient = window.supabase.createClient(
+      config.supabaseUrl,
+      config.supabasePublishableKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        }
+      }
+    );
 
-    if (!currentEmail) {
-      throw new Error('The signed-in coordinator account has no email address.');
+    try {
+      const { data: targetAuth, error: signInError } =
+        await tempClient.auth.signInWithPassword({
+          email: normalized,
+          password: currentSecret
+        });
+
+      if (signInError || !targetAuth?.user) {
+        throw new Error('Current password is incorrect for the selected coordinator.');
+      }
+
+      const signedInEmail =
+        String(targetAuth.user.email || '').trim().toLowerCase();
+
+      if (signedInEmail !== normalized) {
+        throw new Error('Current-password verification did not match the selected coordinator.');
+      }
+
+      const { data, error: updateError } =
+        await tempClient.auth.updateUser({
+          password: nextSecret
+        });
+
+      if (updateError) throw updateError;
+      return data;
+    } finally {
+      try {
+        await tempClient.auth.signOut();
+      } catch (_) {
+        // Non-persistent temporary session; nothing else to clean up.
+      }
     }
-
-    // Re-authenticate against Supabase first. A wrong old password stops here
-    // and the password update is never attempted.
-    const { data: reauthData, error: reauthError } =
-      await client.auth.signInWithPassword({
-        email: currentEmail,
-        password: currentSecret
-      });
-
-    if (reauthError) {
-      const error = new Error('Current password is incorrect.');
-      error.cause = reauthError;
-      throw error;
-    }
-
-    if (
-      !reauthData?.user ||
-      String(reauthData.user.id) !== String(currentUserId)
-    ) {
-      throw new Error('Current-password verification did not match the signed-in coordinator.');
-    }
-
-    const { data, error } = await client.auth.updateUser({
-      password: nextSecret
-    });
-
-    if (error) throw error;
-
-    user = data?.user || reauthData.user || user;
-    return data;
   }
 
   async function listCoordinators() {
@@ -129,17 +156,48 @@
     return Array.isArray(data) ? data : [];
   }
 
-  async function addCoordinator(email) {
+  async function addCoordinator(email, password) {
     if (!client || !user) throw new Error('Sign in first.');
 
     const normalized = String(email || '').trim().toLowerCase();
+    const secret = String(password || '');
+
     if (!normalized) throw new Error('Enter an email address.');
+    if (secret.length < 8) {
+      throw new Error('Initial password must be at least 8 characters.');
+    }
 
-    const { data, error } = await client.rpc('add_badminton_coordinator', {
-      p_email: normalized
-    });
+    const { data, error } = await client.functions.invoke(
+      'badminton-coordinator-admin',
+      {
+        body: {
+          action: 'add',
+          email: normalized,
+          password: secret
+        }
+      }
+    );
 
-    if (error) throw error;
+    if (error) {
+      let message = error.message || 'Coordinator account creation failed.';
+
+      try {
+        const context = error.context;
+        if (context && typeof context.json === 'function') {
+          const body = await context.json();
+          if (body?.error) message = body.error;
+        }
+      } catch (_) {
+        // Keep the original function error message.
+      }
+
+      throw new Error(message);
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
     return data;
   }
 
@@ -251,5 +309,5 @@
     const { error } = await client.from('badminton_session_history').delete().eq('workspace_id', activeWorkspace.id);
     if (error) throw error; return true;
   }
-  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeOwnPassword, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
+  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeCoordinatorPassword, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
 })();

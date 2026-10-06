@@ -3359,6 +3359,35 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       note.hidden = true;
       content.hidden = false;
 
+      const passwordTarget = $('#coordinator-password-email');
+      if (passwordTarget) {
+        const previousTarget = passwordTarget.value;
+
+        passwordTarget.innerHTML = coordinators.length
+          ? coordinators.map(item => {
+              const email = String(item.email || '').toLowerCase();
+              const isSelf =
+                email === String(user.email || '').toLowerCase();
+
+              return `<option value="${esc(email)}">${esc(email)}${isSelf ? ' · You' : ''}</option>`;
+            }).join('')
+          : '<option value="">No coordinators</option>';
+
+        const validPrevious = coordinators.some(
+          item => String(item.email || '').toLowerCase() === previousTarget
+        );
+
+        const selfEmail = String(user.email || '').toLowerCase();
+
+        if (validPrevious) {
+          passwordTarget.value = previousTarget;
+        } else if (coordinators.some(
+          item => String(item.email || '').toLowerCase() === selfEmail
+        )) {
+          passwordTarget.value = selfEmail;
+        }
+      }
+
       list.innerHTML = coordinators.length
         ? coordinators.map(item => {
             const isSelf =
@@ -3603,32 +3632,106 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     }
   });
 
+  function setCoordinatorAddFeedback(message = '', type = 'info') {
+    const element = $('#coordinator-add-feedback');
+    if (!element) return;
+
+    if (!message) {
+      element.textContent = '';
+      element.className = 'coordinator-add-feedback';
+      element.hidden = true;
+      return;
+    }
+
+    element.textContent = message;
+    element.className = `coordinator-add-feedback ${type}`;
+    element.hidden = false;
+  }
+
   async function addCoordinatorFromInput() {
-    const input = $('#coordinator-add-email');
-    const email = input?.value.trim() || '';
+    const emailInput = $('#coordinator-add-email');
+    const passwordInput = $('#coordinator-add-password');
+    const confirmInput = $('#coordinator-add-password-confirm');
+    const button = $('#coordinator-add-btn');
+
+    const email = emailInput?.value.trim() || '';
+    const password = passwordInput?.value || '';
+    const confirmation = confirmInput?.value || '';
 
     if (!email) {
-      setStatus('Enter the coordinator email to add.');
+      const message = 'Enter the coordinator email to add.';
+      setStatus(message);
+      setCoordinatorAddFeedback(message, 'warning');
+      emailInput?.focus();
+      return;
+    }
+
+    if (password.length < 8) {
+      const message = 'Initial coordinator password must contain at least 8 characters.';
+      setStatus(message);
+      setCoordinatorAddFeedback(message, 'warning');
+      passwordInput?.focus();
+      return;
+    }
+
+    if (password !== confirmation) {
+      const message = 'Initial password and confirmation do not match.';
+      setStatus(message);
+      setCoordinatorAddFeedback(message, 'warning');
+      confirmInput?.focus();
       return;
     }
 
     try {
-      await window.BadmintonCloud.addCoordinator(email);
-      input.value = '';
-      setStatus(`Coordinator added: ${email.toLowerCase()}`);
+      button.disabled = true;
+      button.textContent = 'Creating…';
+
+      setCoordinatorAddFeedback(
+        'Creating the Supabase Auth account and approving coordinator access…',
+        'working'
+      );
+
+      await window.BadmintonCloud.addCoordinator(email, password);
+
+      emailInput.value = '';
+      passwordInput.value = '';
+      confirmInput.value = '';
+
+      const message =
+        `Coordinator created and approved: ${email.toLowerCase()}. They can sign in immediately with the password you provided.`;
+
+      setStatus(message);
+      setCoordinatorAddFeedback(message, 'success');
       await renderCoordinators();
     } catch (error) {
-      setStatus(`Could not add coordinator: ${error.message}`);
+      const message =
+        `Could not add coordinator: ${error?.message || 'Supabase rejected the request.'}`;
+
+      setStatus(message);
+      setCoordinatorAddFeedback(message, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Add coordinator';
     }
   }
 
-  $('#coordinator-add-btn').addEventListener('click', addCoordinatorFromInput);
+  $('#coordinator-add-btn').addEventListener(
+    'click',
+    addCoordinatorFromInput
+  );
 
-  $('#coordinator-add-email').addEventListener('keydown', event => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    addCoordinatorFromInput();
+  [
+    '#coordinator-add-email',
+    '#coordinator-add-password',
+    '#coordinator-add-password-confirm'
+  ].forEach(selector => {
+    $(selector).addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      addCoordinatorFromInput();
+    });
   });
+
 
   function setCoordinatorPasswordFeedback(message = '', type = 'info') {
     const element = $('#coordinator-password-feedback');
@@ -3647,17 +3750,27 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   }
 
   async function changeCoordinatorPassword() {
+    const targetInput = $('#coordinator-password-email');
     const currentInput = $('#coordinator-current-password');
     const newInput = $('#coordinator-new-password');
     const confirmInput = $('#coordinator-confirm-password');
     const button = $('#coordinator-set-password');
 
+    const targetEmail = targetInput?.value || '';
     const currentPassword = currentInput?.value || '';
     const newPassword = newInput?.value || '';
     const confirmPassword = confirmInput?.value || '';
 
+    if (!targetEmail) {
+      const message = 'Choose the coordinator whose password you want to change.';
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'warning');
+      targetInput?.focus();
+      return;
+    }
+
     if (!currentPassword) {
-      const message = 'Enter your current password.';
+      const message = `Enter the current password for ${targetEmail}.`;
       setStatus(message);
       setCoordinatorPasswordFeedback(message, 'warning');
       currentInput?.focus();
@@ -3681,7 +3794,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     }
 
     if (currentPassword === newPassword) {
-      const message = 'Choose a new password that is different from your current password.';
+      const message = 'Choose a new password that is different from the current password.';
       setStatus(message);
       setCoordinatorPasswordFeedback(message, 'warning');
       newInput?.focus();
@@ -3693,11 +3806,12 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       button.textContent = 'Verifying…';
 
       setCoordinatorPasswordFeedback(
-        'Verifying your current password with Supabase…',
+        `Verifying ${targetEmail}'s current password with Supabase…`,
         'working'
       );
 
-      await window.BadmintonCloud.changeOwnPassword(
+      await window.BadmintonCloud.changeCoordinatorPassword(
+        targetEmail,
         currentPassword,
         newPassword
       );
@@ -3706,14 +3820,16 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       newInput.value = '';
       confirmInput.value = '';
 
-      const message = 'Password changed successfully. Your old password is no longer valid.';
+      const message =
+        `Password changed successfully for ${targetEmail}. The old password is no longer valid.`;
+
       setStatus(message);
       setCoordinatorPasswordFeedback(message, 'success');
     } catch (error) {
       const raw = String(error?.message || error || '');
       const message =
         raw.toLowerCase().includes('current password is incorrect')
-          ? 'Password not changed: the current password is incorrect.'
+          ? `Password not changed: the current password for ${targetEmail} is incorrect.`
           : `Password not changed: ${raw || 'Supabase rejected the request.'}`;
 
       setStatus(message);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=36" />
+  <link rel="stylesheet" href="styles.css?refresh=37" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -544,7 +544,7 @@
         <div id="coordinator-manager-content" hidden>
           <div class="coordinator-add-row">
             <label>
-              Add coordinator email
+              Coordinator email
               <input
                 id="coordinator-add-email"
                 class="input"
@@ -554,19 +554,56 @@
               />
             </label>
 
+            <label>
+              Initial password
+              <input
+                id="coordinator-add-password"
+                class="input"
+                type="password"
+                autocomplete="new-password"
+                placeholder="Minimum 8 characters"
+              />
+            </label>
+
+            <label>
+              Confirm password
+              <input
+                id="coordinator-add-password-confirm"
+                class="input"
+                type="password"
+                autocomplete="new-password"
+                placeholder="Repeat password"
+              />
+            </label>
+
             <button id="coordinator-add-btn" class="btn primary" type="button">
               Add coordinator
             </button>
           </div>
 
+          <div
+            id="coordinator-add-feedback"
+            class="coordinator-add-feedback"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></div>
+
           <div class="coordinator-help">
-            Added emails are stored in Supabase. Each approved coordinator also needs a Supabase Auth password to sign in directly.
+            Adding a coordinator creates or provisions their Supabase Auth account with the password entered here, then approves the email for coordinator access.
           </div>
 
           <div class="coordinator-password-card">
             <div>
-              <strong>Change my Supabase password</strong>
-              <span>Your current password must be verified by Supabase before a new password can be saved.</span>
+              <strong>Change coordinator password</strong>
+              <span>Select any approved coordinator. Their current password must be verified by Supabase before the new password is accepted.</span>
+            </div>
+
+            <div class="coordinator-password-target">
+              <label>
+                Coordinator
+                <select id="coordinator-password-email" class="input"></select>
+              </label>
             </div>
 
             <div class="coordinator-password-fields">
@@ -575,7 +612,7 @@
                 class="input"
                 type="password"
                 autocomplete="current-password"
-                placeholder="Current password"
+                placeholder="Their current password"
               />
               <input
                 id="coordinator-new-password"
@@ -626,9 +663,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=36" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=36" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=36" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=36" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=37" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=37" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=37" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=37" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>
