@@ -65,19 +65,59 @@
     return data;
   }
 
-  async function updateOwnPassword(password) {
+  async function changeOwnPassword(currentPassword, newPassword) {
     if (!client || !user) throw new Error('Sign in first.');
 
-    const secret = String(password || '');
-    if (secret.length < 8) {
-      throw new Error('Password must be at least 8 characters.');
+    const currentSecret = String(currentPassword || '');
+    const nextSecret = String(newPassword || '');
+
+    if (!currentSecret) {
+      throw new Error('Enter your current password.');
+    }
+
+    if (nextSecret.length < 8) {
+      throw new Error('New password must be at least 8 characters.');
+    }
+
+    if (currentSecret === nextSecret) {
+      throw new Error('New password must be different from the current password.');
+    }
+
+    const currentUserId = user.id;
+    const currentEmail = String(user.email || '').trim().toLowerCase();
+
+    if (!currentEmail) {
+      throw new Error('The signed-in coordinator account has no email address.');
+    }
+
+    // Re-authenticate against Supabase first. A wrong old password stops here
+    // and the password update is never attempted.
+    const { data: reauthData, error: reauthError } =
+      await client.auth.signInWithPassword({
+        email: currentEmail,
+        password: currentSecret
+      });
+
+    if (reauthError) {
+      const error = new Error('Current password is incorrect.');
+      error.cause = reauthError;
+      throw error;
+    }
+
+    if (
+      !reauthData?.user ||
+      String(reauthData.user.id) !== String(currentUserId)
+    ) {
+      throw new Error('Current-password verification did not match the signed-in coordinator.');
     }
 
     const { data, error } = await client.auth.updateUser({
-      password: secret
+      password: nextSecret
     });
 
     if (error) throw error;
+
+    user = data?.user || reauthData.user || user;
     return data;
   }
 
@@ -211,5 +251,5 @@
     const { error } = await client.from('badminton_session_history').delete().eq('workspace_id', activeWorkspace.id);
     if (error) throw error; return true;
   }
-  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, updateOwnPassword, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
+  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeOwnPassword, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
 })();

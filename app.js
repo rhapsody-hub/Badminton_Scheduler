@@ -452,6 +452,52 @@
     $('#status').textContent = text || '';
   }
 
+  function setAuthFeedback(message = '', type = 'info') {
+    const element = $('#cloud-auth-feedback');
+    if (!element) return;
+
+    if (!message) {
+      element.textContent = '';
+      element.className = 'cloud-auth-feedback';
+      element.hidden = true;
+      return;
+    }
+
+    element.textContent = message;
+    element.className = `cloud-auth-feedback ${type}`;
+    element.hidden = false;
+  }
+
+  function friendlySignInError(error) {
+    const raw = String(error?.message || error || '').trim();
+    const lower = raw.toLowerCase();
+
+    if (lower.includes('not an approved coordinator')) {
+      return 'Access denied: this email is not on the approved coordinator list.';
+    }
+
+    if (
+      lower.includes('invalid login credentials') ||
+      lower.includes('invalid credentials')
+    ) {
+      return 'Sign-in failed: the email or password is incorrect. If this coordinator previously used magic-link sign-in only, set a Supabase password first.';
+    }
+
+    if (lower.includes('email not confirmed')) {
+      return 'Sign-in blocked: this Supabase Auth email has not been confirmed yet.';
+    }
+
+    if (lower.includes('rate limit') || lower.includes('too many')) {
+      return 'Too many sign-in attempts. Wait briefly, then try again.';
+    }
+
+    if (lower.includes('failed to fetch') || lower.includes('network')) {
+      return 'Could not reach Supabase. Check the internet connection and try again.';
+    }
+
+    return raw ? `Sign-in failed: ${raw}` : 'Sign-in failed. Please try again.';
+  }
+
   function snapshotState() {
     normalizeRuntimeMembership();
 
@@ -820,7 +866,9 @@
     showCloudElement('cloud-auth-signed-in', false);
 
     if (!configured) {
+      const message = 'Supabase is not configured, so coordinator sign-in is unavailable.';
       setCloudUiStatus('offline', 'Configure Supabase in config.js for cross-device sync.');
+      setAuthFeedback(message, 'error');
       return;
     }
 
@@ -828,11 +876,25 @@
     if (!user) {
       showCloudElement('cloud-auth-signed-out', true);
       setCloudUiStatus('signedout', 'Sign in to access the shared coordinator workspace.');
+
+      if (!$('#cloud-auth-feedback')?.textContent) {
+        setAuthFeedback(
+          'Enter an approved coordinator email and its Supabase password.',
+          'info'
+        );
+      }
+
       return;
     }
 
     showCloudElement('cloud-auth-signed-in', true);
     $('#cloud-user-email').textContent = user.email || user.id;
+
+    setAuthFeedback(
+      `Signed in successfully as ${user.email || user.id}.`,
+      'success'
+    );
+
     const active = window.BadmintonCloud.getActiveWorkspace();
 
     if (active) {
@@ -883,6 +945,10 @@
         if (!approved) {
           await window.BadmintonCloud.signOut();
           setStatus('This email is no longer approved as a coordinator.');
+          setAuthFeedback(
+            'Coordinator access revoked: this email is no longer approved.',
+            'error'
+          );
         } else {
           const remembered = await window.BadmintonCloud.restoreRememberedWorkspace();
           if (remembered) await activateCloudWorkspace(remembered, { loadState: true });
@@ -3564,58 +3630,171 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     addCoordinatorFromInput();
   });
 
-  $('#coordinator-set-password').addEventListener('click', async () => {
-    const input = $('#coordinator-new-password');
-    const password = input?.value || '';
+  function setCoordinatorPasswordFeedback(message = '', type = 'info') {
+    const element = $('#coordinator-password-feedback');
+    if (!element) return;
 
-    if (password.length < 8) {
-      setStatus('Use a password with at least 8 characters.');
+    if (!message) {
+      element.textContent = '';
+      element.className = 'coordinator-password-feedback';
+      element.hidden = true;
+      return;
+    }
+
+    element.textContent = message;
+    element.className = `coordinator-password-feedback ${type}`;
+    element.hidden = false;
+  }
+
+  async function changeCoordinatorPassword() {
+    const currentInput = $('#coordinator-current-password');
+    const newInput = $('#coordinator-new-password');
+    const confirmInput = $('#coordinator-confirm-password');
+    const button = $('#coordinator-set-password');
+
+    const currentPassword = currentInput?.value || '';
+    const newPassword = newInput?.value || '';
+    const confirmPassword = confirmInput?.value || '';
+
+    if (!currentPassword) {
+      const message = 'Enter your current password.';
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'warning');
+      currentInput?.focus();
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      const message = 'New password must contain at least 8 characters.';
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'warning');
+      newInput?.focus();
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      const message = 'New password and confirmation do not match.';
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'warning');
+      confirmInput?.focus();
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      const message = 'Choose a new password that is different from your current password.';
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'warning');
+      newInput?.focus();
       return;
     }
 
     try {
-      await window.BadmintonCloud.updateOwnPassword(password);
-      input.value = '';
-      setStatus('Supabase password updated for the signed-in coordinator.');
-    } catch (error) {
-      setStatus(`Could not update password: ${error.message}`);
-    }
-  });
+      button.disabled = true;
+      button.textContent = 'Verifying…';
 
-  $('#coordinator-new-password').addEventListener('keydown', event => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    $('#coordinator-set-password').click();
+      setCoordinatorPasswordFeedback(
+        'Verifying your current password with Supabase…',
+        'working'
+      );
+
+      await window.BadmintonCloud.changeOwnPassword(
+        currentPassword,
+        newPassword
+      );
+
+      currentInput.value = '';
+      newInput.value = '';
+      confirmInput.value = '';
+
+      const message = 'Password changed successfully. Your old password is no longer valid.';
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'success');
+    } catch (error) {
+      const raw = String(error?.message || error || '');
+      const message =
+        raw.toLowerCase().includes('current password is incorrect')
+          ? 'Password not changed: the current password is incorrect.'
+          : `Password not changed: ${raw || 'Supabase rejected the request.'}`;
+
+      setStatus(message);
+      setCoordinatorPasswordFeedback(message, 'error');
+
+      if (raw.toLowerCase().includes('current password')) {
+        currentInput?.select();
+      }
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Change Password';
+    }
+  }
+
+  $('#coordinator-set-password').addEventListener(
+    'click',
+    changeCoordinatorPassword
+  );
+
+  [
+    '#coordinator-current-password',
+    '#coordinator-new-password',
+    '#coordinator-confirm-password'
+  ].forEach(selector => {
+    $(selector).addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      changeCoordinatorPassword();
+    });
   });
 
   async function directCoordinatorSignIn() {
     const email = $('#cloud-email').value.trim();
     const password = $('#cloud-password').value;
+    const button = $('#cloud-signin');
 
     if (!email) {
-      setStatus('Enter an approved coordinator email first.');
+      const message = 'Enter an approved coordinator email first.';
+      setStatus(message);
+      setAuthFeedback(message, 'warning');
+      $('#cloud-email').focus();
       return;
     }
 
     if (!password) {
-      setStatus('Enter the coordinator password.');
+      const message = 'Enter the coordinator password.';
+      setStatus(message);
+      setAuthFeedback(message, 'warning');
+      $('#cloud-password').focus();
       return;
     }
-
-    const button = $('#cloud-signin');
 
     try {
       button.disabled = true;
       button.textContent = 'Signing in…';
 
+      setAuthFeedback(
+        'Checking coordinator approval and signing in to Supabase…',
+        'working'
+      );
+
       await window.BadmintonCloud.signInWithPassword(email, password);
       $('#cloud-password').value = '';
 
-      setStatus('Coordinator signed in directly to Supabase.');
+      const message = `Signed in successfully as ${email.toLowerCase()}.`;
+      setStatus(message);
+      setAuthFeedback(message, 'success');
+
       await renderCloudUi();
       await renderCoordinators();
     } catch (error) {
-      setStatus(`Sign-in failed: ${error.message}`);
+      const message = friendlySignInError(error);
+
+      setStatus(message);
+      setAuthFeedback(message, 'error');
+
+      if (
+        String(error?.message || '').toLowerCase().includes('invalid login')
+      ) {
+        $('#cloud-password').select();
+      }
     } finally {
       button.disabled = false;
       button.textContent = 'Sign in';
@@ -3636,7 +3815,10 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       historySource = 'local';
       await renderCloudUi();
       await renderHistory();
-      setStatus('Signed out. Local cache remains on this device.');
+
+      const message = 'Signed out. Local cache remains on this device.';
+      setStatus(message);
+      setAuthFeedback(message, 'info');
     } catch (error) { setStatus(`Sign-out failed: ${error.message}`); }
   });
 
@@ -3699,6 +3881,10 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         await window.BadmintonCloud.signOut();
         historySource = 'local';
         setStatus('This email is not approved as a coordinator.');
+        setAuthFeedback(
+          'Access denied: this email is not approved as a coordinator.',
+          'error'
+        );
       } else {
         const remembered = await window.BadmintonCloud.restoreRememberedWorkspace();
         if (remembered) await activateCloudWorkspace(remembered, { loadState: true });

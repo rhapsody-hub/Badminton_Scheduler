@@ -4032,3 +4032,153 @@ label {
     min-width: 0;
   }
 }
+
+
+/* =========================================================
+   Sign-in feedback
+   ========================================================= */
+
+.cloud-auth-feedback {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 7px 0;
+  padding: 7px 10px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #44505f;
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.cloud-auth-feedback.info {
+  border-color: #cfd9e6;
+  background: #f5f8fc;
+  color: #42566f;
+}
+
+.cloud-auth-feedback.working {
+  border-color: #b9ccec;
+  background: #f2f6fd;
+  color: #365f9d;
+}
+
+.cloud-auth-feedback.success {
+  border-color: #afd5b4;
+  background: #f1faf2;
+  color: #2e6b36;
+}
+
+.cloud-auth-feedback.warning {
+  border-color: #ead49c;
+  background: #fff9e9;
+  color: #795d18;
+}
+
+.cloud-auth-feedback.error {
+  border-color: #e2b4b4;
+  background: #fff3f3;
+  color: #962f2f;
+}
+
+.cloud-auth-feedback[hidden] {
+  display: none !important;
+}
+
+#cloud-signin:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
+
+
+/* =========================================================
+   Verified coordinator password change
+   ========================================================= */
+
+.coordinator-password-card {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.coordinator-password-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.coordinator-password-fields .input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+}
+
+.coordinator-password-fields .btn {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.coordinator-password-feedback {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #d8dfe7;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #44505f;
+  font-size: 0.61rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.coordinator-password-feedback.warning {
+  border-color: #ead49c;
+  background: #fff9e9;
+  color: #795d18;
+}
+
+.coordinator-password-feedback.working {
+  border-color: #b9ccec;
+  background: #f2f6fd;
+  color: #365f9d;
+}
+
+.coordinator-password-feedback.success {
+  border-color: #afd5b4;
+  background: #f1faf2;
+  color: #2e6b36;
+}
+
+.coordinator-password-feedback.error {
+  border-color: #e2b4b4;
+  background: #fff3f3;
+  color: #962f2f;
+}
+
+.coordinator-password-feedback[hidden] {
+  display: none !important;
+}
+
+#coordinator-set-password:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
+
+@media (max-width: 900px) {
+  .coordinator-password-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .coordinator-password-fields .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .coordinator-password-fields {
+    grid-template-columns: 1fr;
+  }
+}

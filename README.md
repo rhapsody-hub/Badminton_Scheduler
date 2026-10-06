@@ -795,3 +795,34 @@ Flow:
 The **Coordinators** page also includes **Set / Change Password** for the coordinator currently signed in on that browser.
 
 Important for existing magic-link-only accounts: Supabase does not automatically create a password for those users. If the browser still has an authenticated session, open Coordinators and set a password once. If there is no active authenticated session anywhere, that existing account will need one recovery/authentication step through Supabase before a password can be established.
+
+
+## Visible coordinator sign-in feedback
+
+Coordinator authentication now has a dedicated inline status panel next to the sign-in controls.
+
+It shows:
+
+- instructions before sign-in
+- **Checking coordinator approval and signing in…**
+- successful sign-in confirmation with the signed-in email
+- missing-email / missing-password warnings
+- unapproved coordinator warning
+- incorrect email/password warning
+- network / rate-limit / email-confirmation errors
+- sign-out confirmation
+
+The global application status remains available, but sign-in feedback no longer depends on the user noticing that separate status area.
+
+
+## Verified coordinator password changes
+
+The Coordinators page now requires all three fields before changing the signed-in coordinator's password:
+
+1. Current password
+2. New password
+3. Confirm new password
+
+The current password is not checked only in the browser. The app re-authenticates the signed-in coordinator against Supabase using the current email + current password. `updateUser({ password })` runs only after that verification succeeds.
+
+The page reports incorrect current passwords, mismatched new-password confirmation, password-length validation, progress, and successful changes directly beside the password form.
