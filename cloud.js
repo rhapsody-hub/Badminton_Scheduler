@@ -35,30 +35,50 @@
     return data === true;
   }
 
-  async function signInWithEmail(email) {
+  async function signInWithPassword(email, password) {
     if (!client) throw new Error('Cloud is not configured.');
 
     const normalized = String(email || '').trim().toLowerCase();
+    const secret = String(password || '');
+
     if (!normalized) throw new Error('Enter an approved coordinator email.');
+    if (!secret) throw new Error('Enter your password.');
 
     const approved = await isCoordinatorEmail(normalized);
     if (!approved) {
       throw new Error('This email is not an approved coordinator.');
     }
 
-    const redirectTo =
-      window.APP_CONFIG?.authRedirectUrl ||
-      (window.location.origin + window.location.pathname);
-
-    const { error } = await client.auth.signInWithOtp({
+    const { data, error } = await client.auth.signInWithPassword({
       email: normalized,
-      options: {
-        emailRedirectTo: redirectTo,
-        shouldCreateUser: true
-      }
+      password: secret
     });
 
     if (error) throw error;
+
+    const signedInEmail = String(data?.user?.email || '').trim().toLowerCase();
+    if (signedInEmail !== normalized) {
+      await client.auth.signOut();
+      throw new Error('Signed-in account does not match the approved coordinator email.');
+    }
+
+    return data;
+  }
+
+  async function updateOwnPassword(password) {
+    if (!client || !user) throw new Error('Sign in first.');
+
+    const secret = String(password || '');
+    if (secret.length < 8) {
+      throw new Error('Password must be at least 8 characters.');
+    }
+
+    const { data, error } = await client.auth.updateUser({
+      password: secret
+    });
+
+    if (error) throw error;
+    return data;
   }
 
   async function listCoordinators() {
@@ -191,5 +211,5 @@
     const { error } = await client.from('badminton_session_history').delete().eq('workspace_id', activeWorkspace.id);
     if (error) throw error; return true;
   }
-  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithEmail, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
+  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, updateOwnPassword, signOut, listCoordinators, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
 })();

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=33" />
+  <link rel="stylesheet" href="styles.css?refresh=34" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -39,10 +39,16 @@
       <div id="cloud-auth-signed-out" class="cloud-auth-row cloud-approved-login" hidden>
         <label class="cloud-email-label">
           Approved coordinator email
-          <input id="cloud-email" class="input" type="email" autocomplete="email" placeholder="name@example.com" />
+          <input id="cloud-email" class="input" type="email" autocomplete="username" placeholder="name@example.com" />
         </label>
+
+        <label class="cloud-password-label">
+          Password
+          <input id="cloud-password" class="input" type="password" autocomplete="current-password" placeholder="Password" />
+        </label>
+
         <button id="cloud-signin" class="btn primary" type="button">Sign in</button>
-        <span class="cloud-approved-note">Only emails already added under Coordinators can request access.</span>
+        <span class="cloud-approved-note">Direct Supabase sign-in. No magic-link email is sent.</span>
       </div>
       <div id="cloud-auth-signed-in" class="cloud-authenticated" hidden>
         <div class="cloud-user-row"><span>Signed in as <strong id="cloud-user-email"></strong></span><button id="cloud-signout" class="btn" type="button">Sign out</button></div>
@@ -546,7 +552,27 @@
           </div>
 
           <div class="coordinator-help">
-            Added emails are stored in Supabase. A new coordinator can then enter that email in the sign-in box and receive their secure sign-in link.
+            Added emails are stored in Supabase. Each approved coordinator also needs a Supabase Auth password to sign in directly.
+          </div>
+
+          <div class="coordinator-password-card">
+            <div>
+              <strong>My Supabase password</strong>
+              <span>Set or change the password for the coordinator account currently signed in on this device.</span>
+            </div>
+
+            <div class="coordinator-password-row">
+              <input
+                id="coordinator-new-password"
+                class="input"
+                type="password"
+                autocomplete="new-password"
+                placeholder="New password (minimum 8 characters)"
+              />
+              <button id="coordinator-set-password" class="btn" type="button">
+                Set / Change Password
+              </button>
+            </div>
           </div>
 
           <div id="coordinator-list" class="coordinator-list"></div>
@@ -570,9 +596,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=33" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=34" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=34" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=34" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=34" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

@@ -778,3 +778,20 @@ Coordinator access now uses a Supabase-backed email allowlist.
 - A coordinator cannot remove their own email through the page.
 
 The connected Supabase project was migrated with the new coordinator table and RPC functions, and existing workspace members were used to seed the initial allowlist.
+
+
+## Direct Supabase coordinator sign-in
+
+Coordinator login now uses Supabase email/password authentication instead of magic links.
+
+Flow:
+
+1. Enter an approved coordinator email.
+2. Enter its Supabase Auth password.
+3. Press **Sign in**.
+4. The app verifies the email is on the coordinator allowlist, then calls Supabase `signInWithPassword`.
+5. No magic-link email is sent.
+
+The **Coordinators** page also includes **Set / Change Password** for the coordinator currently signed in on that browser.
+
+Important for existing magic-link-only accounts: Supabase does not automatically create a password for those users. If the browser still has an authenticated session, open Coordinators and set a password once. If there is no active authenticated session anywhere, that existing account will need one recovery/authentication step through Supabase before a password can be established.

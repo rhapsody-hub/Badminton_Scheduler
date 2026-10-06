@@ -3564,20 +3564,70 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     addCoordinatorFromInput();
   });
 
-  $('#cloud-signin').addEventListener('click', async () => {
+  $('#coordinator-set-password').addEventListener('click', async () => {
+    const input = $('#coordinator-new-password');
+    const password = input?.value || '';
+
+    if (password.length < 8) {
+      setStatus('Use a password with at least 8 characters.');
+      return;
+    }
+
+    try {
+      await window.BadmintonCloud.updateOwnPassword(password);
+      input.value = '';
+      setStatus('Supabase password updated for the signed-in coordinator.');
+    } catch (error) {
+      setStatus(`Could not update password: ${error.message}`);
+    }
+  });
+
+  $('#coordinator-new-password').addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    $('#coordinator-set-password').click();
+  });
+
+  async function directCoordinatorSignIn() {
     const email = $('#cloud-email').value.trim();
+    const password = $('#cloud-password').value;
 
     if (!email) {
       setStatus('Enter an approved coordinator email first.');
       return;
     }
 
+    if (!password) {
+      setStatus('Enter the coordinator password.');
+      return;
+    }
+
+    const button = $('#cloud-signin');
+
     try {
-      await window.BadmintonCloud.signInWithEmail(email);
-      setStatus('Approved email confirmed. Check that inbox for the secure sign-in link.');
+      button.disabled = true;
+      button.textContent = 'Signing in…';
+
+      await window.BadmintonCloud.signInWithPassword(email, password);
+      $('#cloud-password').value = '';
+
+      setStatus('Coordinator signed in directly to Supabase.');
+      await renderCloudUi();
+      await renderCoordinators();
     } catch (error) {
       setStatus(`Sign-in failed: ${error.message}`);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Sign in';
     }
+  }
+
+  $('#cloud-signin').addEventListener('click', directCoordinatorSignIn);
+
+  $('#cloud-password').addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    directCoordinatorSignIn();
   });
 
   $('#cloud-signout').addEventListener('click', async () => {
