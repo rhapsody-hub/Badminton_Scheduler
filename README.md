@@ -982,3 +982,36 @@ Workspace roles now support **Owner**, **Co-owner**, and **Coordinator**.
 - Workspace access checkboxes cannot remove an Owner or Co-owner. An Owner must first demote a Co-owner to Coordinator.
 - Global coordinator-account removal is Owner-only and is refused while that coordinator still belongs to any workspace.
 - Role changes are picked up by the existing 10-second synchronization cycle, so the Coordinators tab can appear/disappear on other devices without a manual page reload.
+
+
+## Website-wide Owner credential
+
+The Owner authorization credential is now global for the entire website rather than stored separately per workspace.
+
+- There is one Website Owner credential.
+- The Website Owner can set or replace it from the Coordinators page.
+- Workspace Owners use that same credential when promoting or demoting Co-owners in workspaces they own.
+- Co-owner roles remain workspace-specific.
+- Workspace membership management remains workspace-specific: only the Owner or a Co-owner of that workspace may grant or revoke normal coordinator access.
+- Only Owner/Co-owner of the active workspace can open the Coordinators page.
+- The website-wide credential is stored only as a bcrypt hash in a private Supabase table.
+
+
+## Owner / Co-owner privilege parity
+
+Owner and Co-owner now share the same regular administration privileges:
+
+- open the Coordinators page
+- add coordinator accounts
+- change coordinator passwords when the target's current password is known
+- assign coordinators to workspaces they manage
+- remove normal coordinator access from workspaces they manage
+- remove coordinator accounts after all workspace memberships are removed
+- create new workspaces
+
+The intended role differences are:
+
+1. Only a **workspace Owner** can promote a Coordinator to Co-owner or demote/remove a Co-owner.
+2. Only **Owners and Co-owners** can create new workspaces. Normal Coordinators cannot.
+
+Workspace authority remains scoped. A Co-owner of Workspace A can manage coordinator access for Workspace A, but receives no authority over Workspace B unless that same account is also Owner/Co-owner there.

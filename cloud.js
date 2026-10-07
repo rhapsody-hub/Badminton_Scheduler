@@ -161,6 +161,18 @@
     return row || null;
   }
 
+  async function getSiteOwnerStatus() {
+    if (!client || !user) return null;
+
+    const { data, error } = await client.rpc(
+      'get_badminton_site_owner_status'
+    );
+
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return row || null;
+  }
+
   async function listCoordinators(workspaceId = activeWorkspace?.id) {
     if (!client || !user) throw new Error('Sign in first.');
     if (!workspaceId) throw new Error('Open a workspace first.');
@@ -185,16 +197,17 @@
     return Array.isArray(data) ? data : [];
   }
 
-  async function setOwnerCredential(workspaceId, credential) {
+  async function setOwnerCredential(credential) {
     if (!client || !user) throw new Error('Sign in first.');
     const secret = String(credential || '');
-    if (!workspaceId) throw new Error('Choose an owned workspace.');
-    if (secret.length < 8) throw new Error('Owner credential must be at least 8 characters.');
+
+    if (secret.length < 8) {
+      throw new Error('Owner credential must be at least 8 characters.');
+    }
 
     const { data, error } = await client.rpc(
-      'set_badminton_owner_credential',
+      'set_badminton_site_owner_credential',
       {
-        p_workspace_id: workspaceId,
         p_credential: secret
       }
     );
@@ -206,7 +219,7 @@
   async function promoteCoowner(workspaceId, email, ownerCredential) {
     if (!client || !user) throw new Error('Sign in first.');
     const normalized = String(email || '').trim().toLowerCase();
-    if (!workspaceId) throw new Error('Choose an owned workspace.');
+    if (!workspaceId) throw new Error('Choose a workspace you own.');
     if (!normalized) throw new Error('Choose a coordinator.');
     if (!ownerCredential) throw new Error('Enter the owner credential.');
 
@@ -226,7 +239,7 @@
   async function demoteCoowner(workspaceId, email, ownerCredential) {
     if (!client || !user) throw new Error('Sign in first.');
     const normalized = String(email || '').trim().toLowerCase();
-    if (!workspaceId) throw new Error('Choose an owned workspace.');
+    if (!workspaceId) throw new Error('Choose a workspace you own.');
     if (!normalized) throw new Error('Choose a coordinator.');
     if (!ownerCredential) throw new Error('Enter the owner credential.');
 
@@ -355,6 +368,17 @@
     if (error) throw error;
     return data || [];
   }
+  async function canCreateWorkspace() {
+    if (!client || !user) return false;
+
+    const { data, error } = await client.rpc(
+      'can_create_badminton_workspace'
+    );
+
+    if (error) throw error;
+    return data === true;
+  }
+
   async function createWorkspace(name) {
     if (!client || !user) throw new Error('Sign in first.');
     const { data, error } = await client.rpc('create_badminton_workspace', { p_name: name || 'Badminton Workspace' });
@@ -436,5 +460,5 @@
     const { error } = await client.from('badminton_session_history').delete().eq('workspace_id', activeWorkspace.id);
     if (error) throw error; return true;
   }
-  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeCoordinatorPassword, signOut, getWorkspaceAdminStatus, listCoordinators, listManageableWorkspaceAccess, setOwnerCredential, promoteCoowner, demoteCoowner, grantWorkspaceAccess, revokeWorkspaceAccess, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
+  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeCoordinatorPassword, signOut, getWorkspaceAdminStatus, getSiteOwnerStatus, listCoordinators, listManageableWorkspaceAccess, setOwnerCredential, promoteCoowner, demoteCoowner, grantWorkspaceAccess, revokeWorkspaceAccess, addCoordinator, removeCoordinator, listWorkspaces, canCreateWorkspace, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
 })();

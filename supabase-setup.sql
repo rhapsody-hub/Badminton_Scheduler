@@ -669,7 +669,7 @@ grant execute on function public.revoke_badminton_workspace_access(uuid, text)
   to authenticated;
 
 -- ============================================================
--- Workspace Co-owners + private Owner authorization credential
+-- Workspace Co-owners + website-wide Owner authorization credential
 -- ============================================================
 
 alter table public.badminton_workspace_members
@@ -677,19 +677,186 @@ alter table public.badminton_workspace_members
 
 alter table public.badminton_workspace_members
   add constraint badminton_workspace_members_role_check
-  check (role = any (array['owner'::text, 'co-owner'::text, 'coordinator'::text]));
+  check (
+    role = any (
+      array[
+        'owner'::text,
+        'co-owner'::text,
+        'coordinator'::text
+      ]
+    )
+  );
 
-create table if not exists public.badminton_workspace_owner_credentials (
-  workspace_id uuid primary key
-    references public.badminton_workspaces(id) on delete cascade,
-  credential_hash text not null,
+create table if not exists public.badminton_site_owner_security (
+  singleton boolean primary key
+    default true
+    check (singleton = true),
+  site_owner_id uuid not null
+    references auth.users(id) on delete restrict,
+  credential_hash text,
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id) on delete set null
 );
 
-alter table public.badminton_workspace_owner_credentials enable row level security;
-revoke all on table public.badminton_workspace_owner_credentials
+alter table public.badminton_site_owner_security enable row level security;
+
+revoke all on table public.badminton_site_owner_security
   from public, anon, authenticated;
+
+-- When workspaces already exist during migration, the owner of the first
+-- workspace becomes the Website Owner. For a brand-new installation the
+-- credential setter below can initialize this after the first workspace exists.
+insert into public.badminton_site_owner_security(
+  singleton,
+  site_owner_id,
+  credential_hash,
+  updated_at,
+  updated_by
+)
+select
+  true,
+  first_workspace.owner_id,
+  null,
+  now(),
+  first_workspace.owner_id
+from (
+  select w.owner_id
+  from public.badminton_workspaces w
+  order by w.created_at asc, w.id asc
+  limit 1
+) first_workspace
+on conflict (singleton) do nothing;
+
+create or replace function public.get_badminton_site_owner_status()
+returns table(
+  is_site_owner boolean,
+  credential_set boolean
+)
+language plpgsql
+security definer
+set search_path = ''
+stable
+as $$
+declare
+  v_site_owner uuid;
+  v_hash text;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select security.site_owner_id, security.credential_hash
+  into v_site_owner, v_hash
+  from public.badminton_site_owner_security security
+  where security.singleton = true;
+
+  if v_site_owner is null then
+    select w.owner_id
+    into v_site_owner
+    from public.badminton_workspaces w
+    order by w.created_at asc, w.id asc
+    limit 1;
+  end if;
+
+  return query
+  select
+    v_site_owner = (select auth.uid()),
+    v_hash is not null;
+end;
+$$;
+
+revoke all on function public.get_badminton_site_owner_status()
+  from public, anon;
+grant execute on function public.get_badminton_site_owner_status()
+  to authenticated;
+
+create or replace function public.set_badminton_site_owner_credential(
+  p_credential text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_credential text := coalesce(p_credential, '');
+  v_existing_owner uuid;
+  v_first_owner uuid;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if length(v_credential) < 8 then
+    raise exception 'Owner credential must be at least 8 characters';
+  end if;
+
+  select security.site_owner_id
+  into v_existing_owner
+  from public.badminton_site_owner_security security
+  where security.singleton = true;
+
+  if v_existing_owner is null then
+    select w.owner_id
+    into v_first_owner
+    from public.badminton_workspaces w
+    order by w.created_at asc, w.id asc
+    limit 1;
+
+    if v_first_owner is null
+       or v_first_owner <> (select auth.uid())
+    then
+      raise exception 'Only the Website Owner can set the Owner credential';
+    end if;
+
+    insert into public.badminton_site_owner_security(
+      singleton,
+      site_owner_id,
+      credential_hash,
+      updated_at,
+      updated_by
+    )
+    values (
+      true,
+      (select auth.uid()),
+      extensions.crypt(
+        v_credential,
+        extensions.gen_salt('bf', 10)
+      ),
+      now(),
+      (select auth.uid())
+    )
+    on conflict (singleton)
+    do update set
+      credential_hash = excluded.credential_hash,
+      updated_at = excluded.updated_at,
+      updated_by = excluded.updated_by;
+
+    return true;
+  end if;
+
+  if v_existing_owner <> (select auth.uid()) then
+    raise exception 'Only the Website Owner can set the Owner credential';
+  end if;
+
+  update public.badminton_site_owner_security
+  set
+    credential_hash = extensions.crypt(
+      v_credential,
+      extensions.gen_salt('bf', 10)
+    ),
+    updated_at = now(),
+    updated_by = (select auth.uid())
+  where singleton = true;
+
+  return found;
+end;
+$$;
+
+revoke all on function public.set_badminton_site_owner_credential(text)
+  from public, anon;
+grant execute on function public.set_badminton_site_owner_credential(text)
+  to authenticated;
 
 create or replace function public.get_badminton_workspace_admin_status(
   p_workspace_id uuid
@@ -719,8 +886,9 @@ begin
     wm.role in ('owner', 'co-owner'),
     exists (
       select 1
-      from public.badminton_workspace_owner_credentials secret
-      where secret.workspace_id = w.id
+      from public.badminton_site_owner_security security
+      where security.singleton = true
+        and security.credential_hash is not null
     )
   from public.badminton_workspaces w
   join public.badminton_workspace_members wm
@@ -761,7 +929,7 @@ begin
     where caller_membership.user_id = (select auth.uid())
       and caller_membership.role in ('owner', 'co-owner')
   ) then
-    raise exception 'Owner or co-owner access required';
+    raise exception 'Owner or Co-owner access required';
   end if;
 
   return query
@@ -774,8 +942,9 @@ begin
     caller.role,
     exists (
       select 1
-      from public.badminton_workspace_owner_credentials secret
-      where secret.workspace_id = w.id
+      from public.badminton_site_owner_security security
+      where security.singleton = true
+        and security.credential_hash is not null
     )
   from public.badminton_workspace_members caller
   join public.badminton_workspaces w
@@ -799,7 +968,10 @@ grant execute on function public.list_manageable_badminton_workspace_access()
 create or replace function public.list_badminton_coordinators_for_workspace(
   p_workspace_id uuid
 )
-returns table(email text, created_at timestamptz)
+returns table(
+  email text,
+  created_at timestamptz
+)
 language plpgsql
 security definer
 set search_path = ''
@@ -817,7 +989,7 @@ begin
       and wm.user_id = (select auth.uid())
       and wm.role in ('owner', 'co-owner')
   ) then
-    raise exception 'Owner or co-owner access required';
+    raise exception 'Owner or Co-owner access required';
   end if;
 
   return query
@@ -830,62 +1002,6 @@ $$;
 revoke all on function public.list_badminton_coordinators_for_workspace(uuid)
   from public, anon;
 grant execute on function public.list_badminton_coordinators_for_workspace(uuid)
-  to authenticated;
-
-create or replace function public.set_badminton_owner_credential(
-  p_workspace_id uuid,
-  p_credential text
-)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_credential text := coalesce(p_credential, '');
-begin
-  if (select auth.uid()) is null then
-    raise exception 'Authentication required';
-  end if;
-
-  if length(v_credential) < 8 then
-    raise exception 'Owner credential must be at least 8 characters';
-  end if;
-
-  if not exists (
-    select 1
-    from public.badminton_workspaces w
-    where w.id = p_workspace_id
-      and w.owner_id = (select auth.uid())
-  ) then
-    raise exception 'Only the workspace owner can set the owner credential';
-  end if;
-
-  insert into public.badminton_workspace_owner_credentials(
-    workspace_id,
-    credential_hash,
-    updated_at,
-    updated_by
-  )
-  values (
-    p_workspace_id,
-    extensions.crypt(v_credential, extensions.gen_salt('bf', 10)),
-    now(),
-    (select auth.uid())
-  )
-  on conflict (workspace_id)
-  do update set
-    credential_hash = excluded.credential_hash,
-    updated_at = excluded.updated_at,
-    updated_by = excluded.updated_by;
-
-  return true;
-end;
-$$;
-
-revoke all on function public.set_badminton_owner_credential(uuid, text)
-  from public, anon;
-grant execute on function public.set_badminton_owner_credential(uuid, text)
   to authenticated;
 
 create or replace function public.promote_badminton_coowner(
@@ -903,41 +1019,75 @@ declare
   v_target_user_id uuid;
   v_hash text;
 begin
-  if (select auth.uid()) is null then raise exception 'Authentication required'; end if;
-
-  if not exists (
-    select 1 from public.badminton_workspaces w
-    where w.id = p_workspace_id and w.owner_id = (select auth.uid())
-  ) then
-    raise exception 'Only the workspace owner can appoint co-owners';
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
   end if;
 
-  select secret.credential_hash into v_hash
-  from public.badminton_workspace_owner_credentials secret
-  where secret.workspace_id = p_workspace_id;
+  if not exists (
+    select 1
+    from public.badminton_workspaces w
+    where w.id = p_workspace_id
+      and w.owner_id = (select auth.uid())
+  ) then
+    raise exception 'Only the workspace Owner can appoint Co-owners';
+  end if;
 
-  if v_hash is null then raise exception 'Set the owner credential for this workspace first'; end if;
-  if extensions.crypt(coalesce(p_owner_credential, ''), v_hash) <> v_hash then
+  select security.credential_hash
+  into v_hash
+  from public.badminton_site_owner_security security
+  where security.singleton = true;
+
+  if v_hash is null then
+    raise exception 'The Website Owner credential has not been set';
+  end if;
+
+  if extensions.crypt(
+       coalesce(p_owner_credential, ''),
+       v_hash
+     ) <> v_hash
+  then
     raise exception 'Owner credential is incorrect';
   end if;
 
-  if not exists (select 1 from public.badminton_coordinators c where c.email = v_email) then
+  if not exists (
+    select 1
+    from public.badminton_coordinators c
+    where c.email = v_email
+  ) then
     raise exception 'The email must be an approved coordinator first';
   end if;
 
-  select u.id into v_target_user_id
-  from auth.users u where lower(u.email) = v_email limit 1;
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
 
-  if v_target_user_id is null then raise exception 'No Supabase Auth account exists for this coordinator'; end if;
-  if v_target_user_id = (select auth.uid()) then raise exception 'The workspace owner is already the owner'; end if;
+  if v_target_user_id is null then
+    raise exception 'No Supabase Auth account exists for this coordinator';
+  end if;
 
-  insert into public.badminton_workspace_members(workspace_id, user_id, role)
-  values (p_workspace_id, v_target_user_id, 'co-owner')
+  if v_target_user_id = (select auth.uid()) then
+    raise exception 'The workspace Owner is already the Owner';
+  end if;
+
+  insert into public.badminton_workspace_members(
+    workspace_id,
+    user_id,
+    role
+  )
+  values (
+    p_workspace_id,
+    v_target_user_id,
+    'co-owner'
+  )
   on conflict (workspace_id, user_id)
-  do update set role = case
-    when public.badminton_workspace_members.role = 'owner' then 'owner'
-    else 'co-owner'
-  end;
+  do update set role =
+    case
+      when public.badminton_workspace_members.role = 'owner'
+        then 'owner'
+      else 'co-owner'
+    end;
 
   return true;
 end;
@@ -963,29 +1113,49 @@ declare
   v_target_user_id uuid;
   v_hash text;
 begin
-  if (select auth.uid()) is null then raise exception 'Authentication required'; end if;
-
-  if not exists (
-    select 1 from public.badminton_workspaces w
-    where w.id = p_workspace_id and w.owner_id = (select auth.uid())
-  ) then
-    raise exception 'Only the workspace owner can demote co-owners';
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
   end if;
 
-  select secret.credential_hash into v_hash
-  from public.badminton_workspace_owner_credentials secret
-  where secret.workspace_id = p_workspace_id;
+  if not exists (
+    select 1
+    from public.badminton_workspaces w
+    where w.id = p_workspace_id
+      and w.owner_id = (select auth.uid())
+  ) then
+    raise exception 'Only the workspace Owner can demote Co-owners';
+  end if;
 
-  if v_hash is null then raise exception 'Set the owner credential for this workspace first'; end if;
-  if extensions.crypt(coalesce(p_owner_credential, ''), v_hash) <> v_hash then
+  select security.credential_hash
+  into v_hash
+  from public.badminton_site_owner_security security
+  where security.singleton = true;
+
+  if v_hash is null then
+    raise exception 'The Website Owner credential has not been set';
+  end if;
+
+  if extensions.crypt(
+       coalesce(p_owner_credential, ''),
+       v_hash
+     ) <> v_hash
+  then
     raise exception 'Owner credential is incorrect';
   end if;
 
-  select u.id into v_target_user_id
-  from auth.users u where lower(u.email) = v_email limit 1;
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
 
-  if v_target_user_id is null then raise exception 'Coordinator account not found'; end if;
-  if v_target_user_id = (select auth.uid()) then raise exception 'The workspace owner cannot be demoted'; end if;
+  if v_target_user_id is null then
+    raise exception 'Coordinator account not found';
+  end if;
+
+  if v_target_user_id = (select auth.uid()) then
+    raise exception 'The workspace Owner cannot be demoted';
+  end if;
 
   update public.badminton_workspace_members wm
   set role = 'coordinator'
@@ -1002,6 +1172,7 @@ revoke all on function public.demote_badminton_coowner(uuid, text, text)
 grant execute on function public.demote_badminton_coowner(uuid, text, text)
   to authenticated;
 
+-- Owner and Co-owner can grant/remove normal coordinator workspace access.
 create or replace function public.grant_badminton_workspace_access(
   p_workspace_id uuid,
   p_email text
@@ -1015,33 +1186,57 @@ declare
   v_email text;
   v_target_user_id uuid;
 begin
-  if (select auth.uid()) is null then raise exception 'Authentication required'; end if;
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
 
   if not exists (
-    select 1 from public.badminton_workspace_members caller
+    select 1
+    from public.badminton_workspace_members caller
     where caller.workspace_id = p_workspace_id
       and caller.user_id = (select auth.uid())
       and caller.role in ('owner', 'co-owner')
   ) then
-    raise exception 'Owner or co-owner access required';
+    raise exception 'Owner or Co-owner access required';
   end if;
 
   v_email := lower(trim(coalesce(p_email, '')));
-  if not exists (select 1 from public.badminton_coordinators c where c.email = v_email) then
+
+  if not exists (
+    select 1
+    from public.badminton_coordinators c
+    where c.email = v_email
+  ) then
     raise exception 'The email must be an approved coordinator first';
   end if;
 
-  select u.id into v_target_user_id from auth.users u where lower(u.email) = v_email limit 1;
-  if v_target_user_id is null then raise exception 'No Supabase Auth account exists for this coordinator'; end if;
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
 
-  insert into public.badminton_workspace_members(workspace_id, user_id, role)
-  values (p_workspace_id, v_target_user_id, 'coordinator')
+  if v_target_user_id is null then
+    raise exception 'No Supabase Auth account exists for this coordinator';
+  end if;
+
+  insert into public.badminton_workspace_members(
+    workspace_id,
+    user_id,
+    role
+  )
+  values (
+    p_workspace_id,
+    v_target_user_id,
+    'coordinator'
+  )
   on conflict (workspace_id, user_id)
-  do update set role = case
-    when public.badminton_workspace_members.role in ('owner', 'co-owner')
-      then public.badminton_workspace_members.role
-    else 'coordinator'
-  end;
+  do update set role =
+    case
+      when public.badminton_workspace_members.role in ('owner', 'co-owner')
+        then public.badminton_workspace_members.role
+      else 'coordinator'
+    end;
 
   return true;
 end;
@@ -1066,27 +1261,45 @@ declare
   v_target_user_id uuid;
   v_target_role text;
 begin
-  if (select auth.uid()) is null then raise exception 'Authentication required'; end if;
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
 
   if not exists (
-    select 1 from public.badminton_workspace_members caller
+    select 1
+    from public.badminton_workspace_members caller
     where caller.workspace_id = p_workspace_id
       and caller.user_id = (select auth.uid())
       and caller.role in ('owner', 'co-owner')
   ) then
-    raise exception 'Owner or co-owner access required';
+    raise exception 'Owner or Co-owner access required';
   end if;
 
   v_email := lower(trim(coalesce(p_email, '')));
-  select u.id into v_target_user_id from auth.users u where lower(u.email) = v_email limit 1;
-  if v_target_user_id is null then return false; end if;
 
-  select wm.role into v_target_role
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_target_user_id is null then
+    return false;
+  end if;
+
+  select wm.role
+  into v_target_role
   from public.badminton_workspace_members wm
-  where wm.workspace_id = p_workspace_id and wm.user_id = v_target_user_id;
+  where wm.workspace_id = p_workspace_id
+    and wm.user_id = v_target_user_id;
 
-  if v_target_role = 'owner' then raise exception 'Workspace owner access cannot be removed'; end if;
-  if v_target_role = 'co-owner' then raise exception 'Demote the co-owner to coordinator before removing workspace access'; end if;
+  if v_target_role = 'owner' then
+    raise exception 'Workspace Owner access cannot be removed';
+  end if;
+
+  if v_target_role = 'co-owner' then
+    raise exception 'Demote the Co-owner before removing workspace access';
+  end if;
 
   delete from public.badminton_workspace_members wm
   where wm.workspace_id = p_workspace_id
@@ -1115,29 +1328,43 @@ declare
   v_email text := lower(trim(coalesce(p_email, '')));
   v_target_user_id uuid;
 begin
-  if (select auth.uid()) is null then raise exception 'Authentication required'; end if;
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
 
   if not exists (
-    select 1 from public.badminton_workspace_members caller
+    select 1
+    from public.badminton_workspace_members caller
     where caller.workspace_id = p_workspace_id
       and caller.user_id = (select auth.uid())
       and caller.role = 'owner'
   ) then
-    raise exception 'Only a workspace owner can remove a coordinator account';
+    raise exception 'Only a workspace Owner can remove a coordinator account';
   end if;
 
   if v_email = lower(coalesce((select auth.jwt() ->> 'email'), '')) then
     raise exception 'You cannot remove your own coordinator email';
   end if;
 
-  select u.id into v_target_user_id from auth.users u where lower(u.email) = v_email limit 1;
-  if v_target_user_id is not null and exists (
-    select 1 from public.badminton_workspace_members wm where wm.user_id = v_target_user_id
-  ) then
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_target_user_id is not null
+     and exists (
+       select 1
+       from public.badminton_workspace_members wm
+       where wm.user_id = v_target_user_id
+     )
+  then
     raise exception 'Remove this coordinator from all workspaces before removing the coordinator account';
   end if;
 
-  delete from public.badminton_coordinators where email = v_email;
+  delete from public.badminton_coordinators
+  where email = v_email;
+
   return found;
 end;
 $$;
@@ -1147,7 +1374,217 @@ revoke all on function public.remove_badminton_coordinator_authorized(uuid, text
 grant execute on function public.remove_badminton_coordinator_authorized(uuid, text)
   to authenticated;
 
--- Disable older broad coordinator-management RPCs for signed-in users.
-revoke execute on function public.list_badminton_coordinators() from authenticated;
-revoke execute on function public.list_owned_badminton_workspace_access() from authenticated;
-revoke execute on function public.remove_badminton_coordinator(text) from authenticated;
+-- Disable older broad coordinator-management RPCs.
+revoke execute on function public.list_badminton_coordinators()
+  from authenticated;
+revoke execute on function public.list_owned_badminton_workspace_access()
+  from authenticated;
+revoke execute on function public.remove_badminton_coordinator(text)
+  from authenticated;
+
+
+-- ============================================================
+-- Owner / Co-owner privilege parity
+-- ============================================================
+
+create or replace function public.can_create_badminton_workspace()
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+stable
+as $$
+declare
+  v_email text;
+begin
+  if (select auth.uid()) is null then
+    return false;
+  end if;
+
+  v_email := lower(coalesce((select auth.jwt() ->> 'email'), ''));
+
+  if not exists (
+    select 1
+    from public.badminton_coordinators c
+    where c.email = v_email
+  ) then
+    return false;
+  end if;
+
+  if not exists (
+    select 1
+    from public.badminton_workspaces
+  ) then
+    return true;
+  end if;
+
+  return exists (
+    select 1
+    from public.badminton_workspace_members wm
+    where wm.user_id = (select auth.uid())
+      and wm.role in ('owner', 'co-owner')
+  );
+end;
+$$;
+
+revoke all on function public.can_create_badminton_workspace()
+  from public, anon;
+grant execute on function public.can_create_badminton_workspace()
+  to authenticated;
+
+create or replace function public.create_badminton_workspace(
+  p_name text
+)
+returns table(
+  workspace_id uuid,
+  join_code text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_workspace_id uuid;
+  v_code text;
+  v_email text;
+  v_workspace_count integer;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  v_email := lower(coalesce((select auth.jwt() ->> 'email'), ''));
+
+  if not exists (
+    select 1
+    from public.badminton_coordinators c
+    where c.email = v_email
+  ) then
+    raise exception 'Coordinator access required';
+  end if;
+
+  select count(*)
+  into v_workspace_count
+  from public.badminton_workspaces;
+
+  if v_workspace_count > 0
+     and not exists (
+       select 1
+       from public.badminton_workspace_members wm
+       where wm.user_id = (select auth.uid())
+         and wm.role in ('owner', 'co-owner')
+     )
+  then
+    raise exception 'Only an Owner or Co-owner can create a workspace';
+  end if;
+
+  loop
+    v_code := upper(
+      substr(
+        md5(random()::text || clock_timestamp()::text),
+        1,
+        8
+      )
+    );
+
+    exit when not exists (
+      select 1
+      from public.badminton_workspaces w
+      where w.join_code = v_code
+    );
+  end loop;
+
+  insert into public.badminton_workspaces(
+    name,
+    join_code,
+    owner_id
+  )
+  values (
+    coalesce(
+      nullif(trim(p_name), ''),
+      'Badminton Workspace'
+    ),
+    v_code,
+    (select auth.uid())
+  )
+  returning id into v_workspace_id;
+
+  insert into public.badminton_workspace_members(
+    workspace_id,
+    user_id,
+    role
+  )
+  values (
+    v_workspace_id,
+    (select auth.uid()),
+    'owner'
+  );
+
+  return query
+  select v_workspace_id, v_code;
+end;
+$$;
+
+revoke all on function public.create_badminton_workspace(text)
+  from public, anon;
+grant execute on function public.create_badminton_workspace(text)
+  to authenticated;
+
+create or replace function public.remove_badminton_coordinator_authorized(
+  p_workspace_id uuid,
+  p_email text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_email text := lower(trim(coalesce(p_email, '')));
+  v_target_user_id uuid;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.badminton_workspace_members caller
+    where caller.workspace_id = p_workspace_id
+      and caller.user_id = (select auth.uid())
+      and caller.role in ('owner', 'co-owner')
+  ) then
+    raise exception 'Owner or Co-owner access required';
+  end if;
+
+  if v_email = lower(coalesce((select auth.jwt() ->> 'email'), '')) then
+    raise exception 'You cannot remove your own coordinator email';
+  end if;
+
+  select u.id
+  into v_target_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_target_user_id is not null
+     and exists (
+       select 1
+       from public.badminton_workspace_members wm
+       where wm.user_id = v_target_user_id
+     )
+  then
+    raise exception 'Remove this coordinator from all workspaces before removing the coordinator account';
+  end if;
+
+  delete from public.badminton_coordinators
+  where email = v_email;
+
+  return found;
+end;
+$$;
+
+revoke all on function public.remove_badminton_coordinator_authorized(uuid, text)
+  from public, anon;
+grant execute on function public.remove_badminton_coordinator_authorized(uuid, text)
+  to authenticated;

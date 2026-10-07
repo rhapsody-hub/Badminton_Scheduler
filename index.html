@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=47" />
+  <link rel="stylesheet" href="styles.css?refresh=49" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -72,7 +72,7 @@
         <div class="cloud-user-row"><span>Signed in as <strong id="cloud-user-email"></strong></span><button id="cloud-signout" class="btn" type="button">Sign out</button></div>
         <div id="cloud-workspace-picker" class="cloud-workspace-picker">
           <div class="cloud-picker-column"><label>Existing workspace<select id="cloud-workspace-select" class="input"></select></label><button id="cloud-open-workspace" class="btn primary" type="button">Open workspace</button></div>
-          <div class="cloud-picker-column"><label>Create workspace<input id="cloud-new-workspace-name" class="input" type="text" maxlength="80" placeholder="Club / coordinator group" /></label><button id="cloud-create-workspace" class="btn" type="button">Create</button></div>
+          <div id="cloud-create-workspace-column" class="cloud-picker-column" hidden><label>Create workspace<input id="cloud-new-workspace-name" class="input" type="text" maxlength="80" placeholder="Club / coordinator group" /></label><button id="cloud-create-workspace" class="btn" type="button">Create</button><span class="cloud-create-role-note">Owner / Co-owner only</span></div>
           <div class="cloud-picker-column"><label>Join workspace code<input id="cloud-join-code" class="input" type="text" maxlength="12" placeholder="e.g. 7K4M9Q2P" /></label><button id="cloud-join-workspace" class="btn" type="button">Join</button></div>
         </div>
         <div id="cloud-active-workspace" class="cloud-active-workspace" hidden>
@@ -575,7 +575,7 @@
       <div class="section-head">
         <div>
           <h2>Coordinators</h2>
-          <p>Owner / Co-owner only. Manage coordinator accounts, workspace access, and co-owner roles.</p>
+          <p>Owner / Co-owner only. Both roles can manage coordinators and workspace access; only Owners can appoint or remove Co-owners.</p>
         </div>
       </div>
 
@@ -688,21 +688,19 @@
           <div id="owner-credential-card" class="owner-credential-card" hidden>
             <div class="owner-management-head">
               <div>
-                <strong>Owner authorization credential</strong>
+                <strong>Website Owner authorization credential</strong>
                 <span>
-                  Only the workspace owner can set this credential. It is required every time a coordinator is promoted to or demoted from Co-owner. The credential is stored only as a secure hash and is never displayed again.
+                  This is one website-wide credential, not a separate credential for each workspace.
+                  Only the Website Owner can set or replace it. Workspace Owners use this credential
+                  when appointing or demoting Co-owners in workspaces they own. The credential is
+                  stored only as a secure hash and is never displayed again.
                 </span>
               </div>
             </div>
 
-            <div class="owner-credential-grid">
+            <div class="owner-credential-grid global-owner-credential-grid">
               <label>
-                Owned workspace
-                <select id="owner-credential-workspace" class="input"></select>
-              </label>
-
-              <label>
-                New owner credential
+                New website Owner credential
                 <input
                   id="owner-credential-new"
                   class="input"
@@ -724,7 +722,7 @@
               </label>
 
               <button id="owner-credential-save" class="btn primary" type="button">
-                Set / Replace Credential
+                Set / Replace Website Credential
               </button>
             </div>
 
@@ -737,7 +735,7 @@
               <div>
                 <strong>Co-owner management</strong>
                 <span>
-                  Co-owners can access the Coordinators page and manage normal coordinator/workspace access. Only the workspace Owner can appoint or demote Co-owners, and the Owner credential is required.
+                  Co-owners can access the Coordinators page and manage coordinator workspace access for workspaces where they are Co-owner. Only the workspace Owner can appoint or demote Co-owners, using the single website-wide Owner credential.
                 </span>
               </div>
             </div>
@@ -760,7 +758,7 @@
                   class="input"
                   type="password"
                   autocomplete="current-password"
-                  placeholder="Owner authorization credential"
+                  placeholder="Website Owner authorization credential"
                 />
               </label>
             </div>
@@ -826,9 +824,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

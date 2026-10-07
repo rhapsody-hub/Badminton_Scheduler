@@ -687,6 +687,25 @@
     return workspaces;
   }
 
+  async function refreshCreateWorkspacePermission() {
+    const column = $('#cloud-create-workspace-column');
+    if (!column) return false;
+
+    if (!cloudReady || !window.BadmintonCloud?.getUser()) {
+      column.hidden = true;
+      return false;
+    }
+
+    try {
+      const allowed = await window.BadmintonCloud.canCreateWorkspace();
+      column.hidden = !allowed;
+      return allowed;
+    } catch (_) {
+      column.hidden = true;
+      return false;
+    }
+  }
+
   function canManageCoordinatorPage() {
     return Boolean(
       currentWorkspaceAdminStatus?.can_manage_coordinators &&
@@ -761,6 +780,7 @@
       // Refresh memberships every time synchronization completes. This makes
       // newly granted/revoked workspace access appear without reloading.
       const workspaces = await refreshCloudWorkspaceList();
+      await refreshCreateWorkspacePermission();
       const active = window.BadmintonCloud.getActiveWorkspace();
 
       if (!active) {
@@ -1177,6 +1197,8 @@
       `Signed in successfully as ${user.email || user.id}.`,
       'success'
     );
+
+    await refreshCreateWorkspacePermission();
 
     const active = window.BadmintonCloud.getActiveWorkspace();
 
@@ -3989,13 +4011,14 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         return;
       }
 
-      const [coordinators, accessRows] = await Promise.all([
+      const [coordinators, accessRows, siteOwnerStatus] = await Promise.all([
         window.BadmintonCloud.listCoordinators(active.id),
-        window.BadmintonCloud.listManageableWorkspaceAccess()
+        window.BadmintonCloud.listManageableWorkspaceAccess(),
+        window.BadmintonCloud.getSiteOwnerStatus()
       ]);
 
       note.textContent =
-        `Active workspace role: ${adminStatus.member_role === 'owner' ? 'Owner' : 'Co-owner'} · ${active.name || 'Workspace'}`;
+        `Active workspace role: ${adminStatus.member_role === 'owner' ? 'Owner' : 'Co-owner'} · ${active.name || 'Workspace'} · coordinator/workspace management enabled`;
       note.hidden = false;
       note.className = 'coordinator-access-note privileged';
       content.hidden = false;
@@ -4179,7 +4202,6 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       // Owner-only credential and Co-owner controls
       const ownerCredentialCard = $('#owner-credential-card');
       const coownerCard = $('#coowner-management-card');
-      const ownerWorkspaceSelect = $('#owner-credential-workspace');
       const coownerWorkspaceSelect = $('#coowner-workspace-select');
       const coownerEmailSelect = $('#coowner-email');
       const coownerRoleText = $('#coowner-current-role');
@@ -4191,56 +4213,92 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         `<option value="${esc(workspace.id)}">${esc(workspace.name)}</option>`
       ).join('');
 
-      ownerCredentialCard.hidden = ownerWorkspaces.length === 0;
+      const globalCredentialSet = Boolean(
+        siteOwnerStatus?.credential_set ||
+        adminStatus?.owner_credential_set
+      );
+
+      // The credential itself is website-wide and can only be changed by the
+      // Website Owner. It is no longer selected or stored per workspace.
+      ownerCredentialCard.hidden = !siteOwnerStatus?.is_site_owner;
       coownerCard.hidden = ownerWorkspaces.length === 0;
 
+      if (credentialStatus) {
+        credentialStatus.textContent = globalCredentialSet
+          ? 'Website credential status: Set. Saving a new credential replaces it for the entire website.'
+          : 'Website credential status: Not set. The Website Owner must set it before any Co-owner can be appointed.';
+
+        credentialStatus.className =
+          `owner-credential-status ${globalCredentialSet ? 'set' : 'missing'}`;
+      }
+
       if (ownerWorkspaces.length) {
-        const previousOwnerWorkspace = ownerWorkspaceSelect.value;
         const previousCoownerWorkspace = coownerWorkspaceSelect.value;
-        ownerWorkspaceSelect.innerHTML = ownerOptions;
         coownerWorkspaceSelect.innerHTML = ownerOptions;
 
-        if (ownerWorkspaces.some(w => w.id === previousOwnerWorkspace)) {
-          ownerWorkspaceSelect.value = previousOwnerWorkspace;
-        }
         if (ownerWorkspaces.some(w => w.id === previousCoownerWorkspace)) {
           coownerWorkspaceSelect.value = previousCoownerWorkspace;
         }
 
-        const otherCoordinators = coordinatorEmails.filter(email => email !== currentEmail);
+        const otherCoordinators = coordinatorEmails.filter(
+          email => email !== currentEmail
+        );
+
         const previousCoownerEmail = coownerEmailSelect.value;
         coownerEmailSelect.innerHTML = otherCoordinators.length
-          ? otherCoordinators.map(email => `<option value="${esc(email)}">${esc(email)}</option>`).join('')
+          ? otherCoordinators
+              .map(email =>
+                `<option value="${esc(email)}">${esc(email)}</option>`
+              )
+              .join('')
           : '<option value="">No other coordinators</option>';
+
         if (otherCoordinators.includes(previousCoownerEmail)) {
           coownerEmailSelect.value = previousCoownerEmail;
         }
 
-        const updateOwnerCredentialStatus = () => {
-          const workspace = workspaceMap.get(ownerWorkspaceSelect.value);
-          credentialStatus.textContent = workspace?.ownerCredentialSet
-            ? 'Credential status: Set. Saving a new credential replaces the previous one.'
-            : 'Credential status: Not set. Set one before appointing a Co-owner.';
-          credentialStatus.className = `owner-credential-status ${workspace?.ownerCredentialSet ? 'set' : 'missing'}`;
-        };
-
         const updateCoownerRole = () => {
-          const workspace = workspaceMap.get(coownerWorkspaceSelect.value);
-          const email = String(coownerEmailSelect.value || '').toLowerCase();
-          const role = workspace?.members.get(email)?.role || 'no access';
-          coownerRoleText.textContent = `Current role: ${role === 'co-owner' ? 'Co-owner' : (role === 'coordinator' ? 'Coordinator' : (role === 'owner' ? 'Owner' : 'No workspace access'))}`;
+          const workspace = workspaceMap.get(
+            coownerWorkspaceSelect.value
+          );
 
-          promoteButton.disabled = !email || role === 'owner' || role === 'co-owner' || !workspace?.ownerCredentialSet;
-          demoteButton.disabled = !email || role !== 'co-owner' || !workspace?.ownerCredentialSet;
+          const email =
+            String(coownerEmailSelect.value || '').toLowerCase();
+
+          const role =
+            workspace?.members.get(email)?.role || 'no access';
+
+          coownerRoleText.textContent =
+            `Current role: ${
+              role === 'co-owner'
+                ? 'Co-owner'
+                : (
+                    role === 'coordinator'
+                      ? 'Coordinator'
+                      : (
+                          role === 'owner'
+                            ? 'Owner'
+                            : 'No workspace access'
+                        )
+                  )
+            }`;
+
+          promoteButton.disabled =
+            !email ||
+            role === 'owner' ||
+            role === 'co-owner' ||
+            !globalCredentialSet;
+
+          demoteButton.disabled =
+            !email ||
+            role !== 'co-owner' ||
+            !globalCredentialSet;
         };
 
-        ownerWorkspaceSelect.onchange = updateOwnerCredentialStatus;
         coownerWorkspaceSelect.onchange = updateCoownerRole;
         coownerEmailSelect.onchange = updateCoownerRole;
-        updateOwnerCredentialStatus();
         updateCoownerRole();
       }
-
       // Coordinator rows
       list.innerHTML = coordinators.length
         ? coordinators.map(item => {
@@ -4257,7 +4315,9 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
               })
               .join(' · ');
             const canRemoveAccount =
-              adminStatus.member_role === 'owner' && !isSelf;
+              ['owner', 'co-owner'].includes(
+                String(adminStatus.member_role || '')
+              ) && !isSelf;
 
             return `
               <div class="coordinator-row">
@@ -4550,22 +4610,24 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   }
 
   async function saveOwnerCredentialFromInput() {
-    const workspaceId = $('#owner-credential-workspace')?.value || '';
     const credential = $('#owner-credential-new')?.value || '';
     const confirmation = $('#owner-credential-confirm')?.value || '';
     const button = $('#owner-credential-save');
 
-    if (!workspaceId) {
-      setOwnerCredentialFeedback('Choose an owned workspace.', 'warning');
-      return;
-    }
     if (credential.length < 8) {
-      setOwnerCredentialFeedback('Owner credential must contain at least 8 characters.', 'warning');
+      setOwnerCredentialFeedback(
+        'Website Owner credential must contain at least 8 characters.',
+        'warning'
+      );
       $('#owner-credential-new')?.focus();
       return;
     }
+
     if (credential !== confirmation) {
-      setOwnerCredentialFeedback('Owner credential and confirmation do not match.', 'warning');
+      setOwnerCredentialFeedback(
+        'Owner credential and confirmation do not match.',
+        'warning'
+      );
       $('#owner-credential-confirm')?.focus();
       return;
     }
@@ -4573,18 +4635,32 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     try {
       button.disabled = true;
       button.textContent = 'Saving…';
-      setOwnerCredentialFeedback('Hashing and saving owner credential…', 'working');
-      await window.BadmintonCloud.setOwnerCredential(workspaceId, credential);
+
+      setOwnerCredentialFeedback(
+        'Hashing and saving the website-wide Owner credential…',
+        'working'
+      );
+
+      await window.BadmintonCloud.setOwnerCredential(credential);
+
       $('#owner-credential-new').value = '';
       $('#owner-credential-confirm').value = '';
-      setOwnerCredentialFeedback('Owner credential saved. It will be required for Co-owner role changes.', 'success');
-      setStatus('Owner authorization credential saved.');
+
+      setOwnerCredentialFeedback(
+        'Website Owner credential saved. The same credential now authorizes Co-owner role changes across all workspaces.',
+        'success'
+      );
+
+      setStatus('Website Website Owner authorization credential saved.');
       await renderCoordinators();
     } catch (error) {
-      setOwnerCredentialFeedback(`Could not save owner credential: ${error.message}`, 'error');
+      setOwnerCredentialFeedback(
+        `Could not save Owner credential: ${error.message}`,
+        'error'
+      );
     } finally {
       button.disabled = false;
-      button.textContent = 'Set / Replace Credential';
+      button.textContent = 'Set / Replace Website Credential';
     }
   }
 
@@ -4600,7 +4676,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       return;
     }
     if (!credential) {
-      setCoownerFeedback('Enter the Owner authorization credential.', 'warning');
+      setCoownerFeedback('Enter the website-wide Owner authorization credential.', 'warning');
       $('#coowner-owner-credential')?.focus();
       return;
     }
@@ -4962,6 +5038,13 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   });
 
   $('#cloud-create-workspace').addEventListener('click', async () => {
+    const canCreate = await refreshCreateWorkspacePermission();
+
+    if (!canCreate) {
+      setStatus('Only an Owner or Co-owner can create a workspace.');
+      return;
+    }
+
     const name = $('#cloud-new-workspace-name').value.trim() || 'Badminton Workspace';
     try {
       const workspace = await window.BadmintonCloud.createWorkspace(name);

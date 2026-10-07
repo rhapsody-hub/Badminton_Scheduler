@@ -5224,3 +5224,36 @@ label {
     flex: 1 1 0;
   }
 }
+
+
+/* =========================================================
+   Website-wide Owner credential
+   ========================================================= */
+
+.global-owner-credential-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+@media (max-width: 760px) {
+  .global-owner-credential-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   Owner / Co-owner workspace creation
+   ========================================================= */
+
+.cloud-create-role-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.55rem;
+  font-weight: 700;
+}
+
+#cloud-create-workspace-column[hidden] {
+  display: none !important;
+}
