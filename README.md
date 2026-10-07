@@ -968,3 +968,17 @@ Every completed cloud synchronization also refreshes the workspace list/UI, so w
 Supabase Realtime remains enabled, so changes from another coordinator can still arrive immediately; the 10-second poll acts as a reliability fallback.
 
 The periodic pull is skipped while a local save is queued or in progress. Failed cloud uploads are kept queued instead of discarded, preventing the periodic pull from replacing unsaved local edits with an older remote copy.
+
+
+## Owner / Co-owner permissions
+
+Workspace roles now support **Owner**, **Co-owner**, and **Coordinator**.
+
+- The **Coordinators** navigation tab is shown only when the signed-in user is Owner or Co-owner of the currently active workspace.
+- The backend also enforces this restriction; hiding the page is not the security boundary.
+- Owners can set a separate **Owner authorization credential** for each workspace. The credential is bcrypt-hashed in Supabase and never returned to the browser.
+- Promoting or demoting a Co-owner requires the workspace Owner plus the correct Owner credential.
+- Co-owners can manage normal coordinator accounts and workspace access for workspaces where they are Co-owner, but cannot appoint/demote Co-owners.
+- Workspace access checkboxes cannot remove an Owner or Co-owner. An Owner must first demote a Co-owner to Coordinator.
+- Global coordinator-account removal is Owner-only and is refused while that coordinator still belongs to any workspace.
+- Role changes are picked up by the existing 10-second synchronization cycle, so the Coordinators tab can appear/disappear on other devices without a manual page reload.

@@ -148,22 +148,99 @@
     }
   }
 
-  async function listCoordinators() {
-    if (!client || !user) throw new Error('Sign in first.');
+  async function getWorkspaceAdminStatus(workspaceId = activeWorkspace?.id) {
+    if (!client || !user || !workspaceId) return null;
 
-    const { data, error } = await client.rpc('list_badminton_coordinators');
+    const { data, error } = await client.rpc(
+      'get_badminton_workspace_admin_status',
+      { p_workspace_id: workspaceId }
+    );
+
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return row || null;
+  }
+
+  async function listCoordinators(workspaceId = activeWorkspace?.id) {
+    if (!client || !user) throw new Error('Sign in first.');
+    if (!workspaceId) throw new Error('Open a workspace first.');
+
+    const { data, error } = await client.rpc(
+      'list_badminton_coordinators_for_workspace',
+      { p_workspace_id: workspaceId }
+    );
+
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   }
 
-  async function listOwnedWorkspaceAccess() {
+  async function listManageableWorkspaceAccess() {
     if (!client || !user) throw new Error('Sign in first.');
 
-    const { data, error } =
-      await client.rpc('list_owned_badminton_workspace_access');
+    const { data, error } = await client.rpc(
+      'list_manageable_badminton_workspace_access'
+    );
 
     if (error) throw error;
     return Array.isArray(data) ? data : [];
+  }
+
+  async function setOwnerCredential(workspaceId, credential) {
+    if (!client || !user) throw new Error('Sign in first.');
+    const secret = String(credential || '');
+    if (!workspaceId) throw new Error('Choose an owned workspace.');
+    if (secret.length < 8) throw new Error('Owner credential must be at least 8 characters.');
+
+    const { data, error } = await client.rpc(
+      'set_badminton_owner_credential',
+      {
+        p_workspace_id: workspaceId,
+        p_credential: secret
+      }
+    );
+
+    if (error) throw error;
+    return data === true;
+  }
+
+  async function promoteCoowner(workspaceId, email, ownerCredential) {
+    if (!client || !user) throw new Error('Sign in first.');
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!workspaceId) throw new Error('Choose an owned workspace.');
+    if (!normalized) throw new Error('Choose a coordinator.');
+    if (!ownerCredential) throw new Error('Enter the owner credential.');
+
+    const { data, error } = await client.rpc(
+      'promote_badminton_coowner',
+      {
+        p_workspace_id: workspaceId,
+        p_email: normalized,
+        p_owner_credential: String(ownerCredential)
+      }
+    );
+
+    if (error) throw error;
+    return data === true;
+  }
+
+  async function demoteCoowner(workspaceId, email, ownerCredential) {
+    if (!client || !user) throw new Error('Sign in first.');
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!workspaceId) throw new Error('Choose an owned workspace.');
+    if (!normalized) throw new Error('Choose a coordinator.');
+    if (!ownerCredential) throw new Error('Enter the owner credential.');
+
+    const { data, error } = await client.rpc(
+      'demote_badminton_coowner',
+      {
+        p_workspace_id: workspaceId,
+        p_email: normalized,
+        p_owner_credential: String(ownerCredential)
+      }
+    );
+
+    if (error) throw error;
+    return data === true;
   }
 
   async function grantWorkspaceAccess(workspaceId, email) {
@@ -204,12 +281,13 @@
     return data === true;
   }
 
-  async function addCoordinator(email, password) {
+  async function addCoordinator(email, password, workspaceId = activeWorkspace?.id) {
     if (!client || !user) throw new Error('Sign in first.');
 
     const normalized = String(email || '').trim().toLowerCase();
     const secret = String(password || '');
 
+    if (!workspaceId) throw new Error('Open a workspace first.');
     if (!normalized) throw new Error('Enter an email address.');
     if (secret.length < 8) {
       throw new Error('Initial password must be at least 8 characters.');
@@ -220,6 +298,7 @@
       {
         body: {
           action: 'add',
+          workspace_id: workspaceId,
           email: normalized,
           password: secret
         }
@@ -235,29 +314,29 @@
           const body = await context.json();
           if (body?.error) message = body.error;
         }
-      } catch (_) {
-        // Keep the original function error message.
-      }
+      } catch (_) {}
 
       throw new Error(message);
     }
 
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-
+    if (data?.error) throw new Error(data.error);
     return data;
   }
 
-  async function removeCoordinator(email) {
+  async function removeCoordinator(email, workspaceId = activeWorkspace?.id) {
     if (!client || !user) throw new Error('Sign in first.');
 
     const normalized = String(email || '').trim().toLowerCase();
+    if (!workspaceId) throw new Error('Open a workspace first.');
     if (!normalized) throw new Error('Choose a coordinator email.');
 
-    const { data, error } = await client.rpc('remove_badminton_coordinator', {
-      p_email: normalized
-    });
+    const { data, error } = await client.rpc(
+      'remove_badminton_coordinator_authorized',
+      {
+        p_workspace_id: workspaceId,
+        p_email: normalized
+      }
+    );
 
     if (error) throw error;
     return data === true;
@@ -357,5 +436,5 @@
     const { error } = await client.from('badminton_session_history').delete().eq('workspace_id', activeWorkspace.id);
     if (error) throw error; return true;
   }
-  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeCoordinatorPassword, signOut, listCoordinators, listOwnedWorkspaceAccess, grantWorkspaceAccess, revokeWorkspaceAccess, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
+  window.BadmintonCloud = { isConfigured, init, getUser, getActiveWorkspace, setSyncStatusHandler, setRemoteStateHandler, isCoordinatorEmail, signInWithPassword, changeCoordinatorPassword, signOut, getWorkspaceAdminStatus, listCoordinators, listManageableWorkspaceAccess, setOwnerCredential, promoteCoowner, demoteCoowner, grantWorkspaceAccess, revokeWorkspaceAccess, addCoordinator, removeCoordinator, listWorkspaces, createWorkspace, joinWorkspace, openWorkspace, restoreRememberedWorkspace, leaveActiveWorkspaceView, loadCurrentState, saveCurrentState, saveHistorySession, loadHistory, deleteHistorySession, clearHistory };
 })();

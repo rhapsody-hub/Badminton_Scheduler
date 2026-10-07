@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=46" />
+  <link rel="stylesheet" href="styles.css?refresh=47" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -23,7 +23,7 @@
       <a class="tab" href="#groups" data-tab="groups" aria-selected="false">Groups</a>
       <a class="tab" href="#session" data-tab="session" aria-selected="false">Session</a>
       <a class="tab" href="#matches" data-tab="matches" aria-selected="false">Matches</a>
-      <a class="tab" href="#coordinators" data-tab="coordinators" aria-selected="false">Coordinators</a>
+      <a class="tab" href="#coordinators" data-tab="coordinators" aria-selected="false" hidden>Coordinators</a>
       
       <a class="tab" href="#history" data-tab="history" aria-selected="false">Session History</a>
     </nav>
@@ -575,7 +575,7 @@
       <div class="section-head">
         <div>
           <h2>Coordinators</h2>
-          <p>Manage the email addresses allowed to sign in as coordinators.</p>
+          <p>Owner / Co-owner only. Manage coordinator accounts, workspace access, and co-owner roles.</p>
         </div>
       </div>
 
@@ -685,13 +685,104 @@
             ></div>
           </div>
 
+          <div id="owner-credential-card" class="owner-credential-card" hidden>
+            <div class="owner-management-head">
+              <div>
+                <strong>Owner authorization credential</strong>
+                <span>
+                  Only the workspace owner can set this credential. It is required every time a coordinator is promoted to or demoted from Co-owner. The credential is stored only as a secure hash and is never displayed again.
+                </span>
+              </div>
+            </div>
+
+            <div class="owner-credential-grid">
+              <label>
+                Owned workspace
+                <select id="owner-credential-workspace" class="input"></select>
+              </label>
+
+              <label>
+                New owner credential
+                <input
+                  id="owner-credential-new"
+                  class="input"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Minimum 8 characters"
+                />
+              </label>
+
+              <label>
+                Confirm credential
+                <input
+                  id="owner-credential-confirm"
+                  class="input"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Repeat credential"
+                />
+              </label>
+
+              <button id="owner-credential-save" class="btn primary" type="button">
+                Set / Replace Credential
+              </button>
+            </div>
+
+            <div id="owner-credential-status" class="owner-credential-status"></div>
+            <div id="owner-credential-feedback" class="workspace-access-feedback" role="status" aria-live="polite" hidden></div>
+          </div>
+
+          <div id="coowner-management-card" class="owner-credential-card" hidden>
+            <div class="owner-management-head">
+              <div>
+                <strong>Co-owner management</strong>
+                <span>
+                  Co-owners can access the Coordinators page and manage normal coordinator/workspace access. Only the workspace Owner can appoint or demote Co-owners, and the Owner credential is required.
+                </span>
+              </div>
+            </div>
+
+            <div class="coowner-management-grid">
+              <label>
+                Owned workspace
+                <select id="coowner-workspace-select" class="input"></select>
+              </label>
+
+              <label>
+                Coordinator
+                <select id="coowner-email" class="input"></select>
+              </label>
+
+              <label>
+                Owner credential
+                <input
+                  id="coowner-owner-credential"
+                  class="input"
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="Owner authorization credential"
+                />
+              </label>
+            </div>
+
+            <div class="coowner-role-row">
+              <span id="coowner-current-role" class="coowner-current-role">Current role: —</span>
+              <div class="coowner-role-actions">
+                <button id="coowner-promote" class="btn primary" type="button">Promote to Co-owner</button>
+                <button id="coowner-demote" class="btn" type="button">Demote to Coordinator</button>
+              </div>
+            </div>
+
+            <div id="coowner-feedback" class="workspace-access-feedback" role="status" aria-live="polite" hidden></div>
+          </div>
+
           <div class="coordinator-workspace-access-card">
             <div class="coordinator-workspace-access-head">
               <div>
                 <strong>Workspace access</strong>
                 <span>
-                  Assign approved coordinators to any workspace created by your account.
-                  Their assigned workspaces appear automatically after sign-in on any device.
+                  Assign approved coordinators to workspaces where you are Owner or Co-owner.
+                  Owner/Co-owner roles cannot be removed with this checkbox; the Owner must demote a Co-owner first.
                 </span>
               </div>
             </div>
@@ -735,9 +826,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=46" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=46" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=46" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=46" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=47" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

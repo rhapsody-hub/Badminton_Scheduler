@@ -5074,3 +5074,153 @@ label {
     flex: 1 1 0;
   }
 }
+
+
+/* =========================================================
+   Owner / Co-owner authorization
+   ========================================================= */
+
+.tabs .tab[hidden],
+[data-tab="coordinators"][hidden] {
+  display: none !important;
+}
+
+.coordinator-access-note.privileged {
+  border-color: #b9ccec;
+  background: #f2f6fd;
+  color: #315f9e;
+}
+
+.owner-credential-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfcfe;
+}
+
+.owner-credential-card[hidden] {
+  display: none !important;
+}
+
+.owner-management-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.owner-management-head strong {
+  font-size: 0.72rem;
+  color: #263f60;
+}
+
+.owner-management-head span {
+  color: var(--muted);
+  font-size: 0.59rem;
+  line-height: 1.4;
+}
+
+.owner-credential-grid,
+.coowner-management-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 7px;
+  align-items: end;
+}
+
+.coowner-management-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.owner-credential-grid label,
+.coowner-management-grid label {
+  min-width: 0;
+  color: #536273;
+  font-size: 0.61rem;
+  font-weight: 800;
+}
+
+.owner-credential-grid .input,
+.coowner-management-grid .input {
+  width: 100%;
+  min-height: 42px;
+  height: 42px;
+  margin-top: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.owner-credential-status {
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 0.59rem;
+  font-weight: 750;
+}
+
+.owner-credential-status.set {
+  background: #eff8f0;
+  color: #2e6b36;
+}
+
+.owner-credential-status.missing {
+  background: #fff8e8;
+  color: #795d18;
+}
+
+.coowner-role-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.coowner-current-role {
+  color: #43536a;
+  font-size: 0.64rem;
+  font-weight: 850;
+}
+
+.coowner-role-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.workspace-access-row.coowner {
+  border-color: #b9ccec;
+  background: #f5f8fd;
+}
+
+.workspace-access-state.granted {
+  white-space: nowrap;
+}
+
+@media (max-width: 850px) {
+  .owner-credential-grid,
+  .coowner-management-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .owner-credential-grid .btn {
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 560px) {
+  .owner-credential-grid,
+  .coowner-management-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coowner-role-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .coowner-role-actions .btn {
+    flex: 1 1 0;
+  }
+}
