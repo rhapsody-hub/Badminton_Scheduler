@@ -710,33 +710,33 @@
     return Boolean(
       currentWorkspaceAdminStatus?.can_manage_coordinators &&
       ['owner', 'co-owner'].includes(
-        String(currentWorkspaceAdminStatus?.member_role || '')
+        String(currentWorkspaceAdminStatus?.site_role || '')
       )
     );
   }
 
   async function refreshCoordinatorPagePermission() {
     const tab = document.querySelector('[data-tab="coordinators"]');
-    const active = window.BadmintonCloud?.getActiveWorkspace();
     const user = window.BadmintonCloud?.getUser();
 
     currentWorkspaceAdminStatus = null;
 
-    if (cloudReady && active && user) {
+    if (cloudReady && user) {
       try {
         currentWorkspaceAdminStatus =
-          await window.BadmintonCloud.getWorkspaceAdminStatus(active.id);
+          await window.BadmintonCloud.getSiteAdminStatus();
       } catch (_) {
         currentWorkspaceAdminStatus = null;
       }
     }
 
     const allowed = canManageCoordinatorPage();
+
     if (tab) tab.hidden = !allowed;
 
     if (!allowed && !$('#coordinators')?.hidden) {
       showPanel('participants', true);
-      setStatus('Only the active workspace Owner or Co-owner can access Coordinators.');
+      setStatus('Only the Website Owner or a Co-owner can access Coordinators.');
     }
 
     return currentWorkspaceAdminStatus;
@@ -1212,7 +1212,7 @@
       showCloudElement('cloud-workspace-picker', true);
       showCloudElement('cloud-active-workspace', false);
       await refreshCloudWorkspaceList();
-      setCloudUiStatus('workspace', 'Choose, create, or join a shared workspace.');
+      setCloudUiStatus('workspace', 'Choose or create a shared workspace.');
     }
   }
 
@@ -3968,7 +3968,6 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     const list = $('#coordinator-list');
     const workspaceTarget = $('#workspace-access-coordinator');
     const workspaceList = $('#workspace-access-list');
-    const active = window.BadmintonCloud?.getActiveWorkspace();
 
     if (!note || !content || !list || !workspaceTarget || !workspaceList) {
       return;
@@ -3985,8 +3984,9 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
 
     const user = window.BadmintonCloud.getUser();
 
-    if (!user || !active) {
-      note.textContent = 'Open a shared workspace first. Only its Owner or Co-owner can access this page.';
+    if (!user) {
+      note.textContent =
+        'Sign in first. Only the Website Owner or a Co-owner can access this page.';
       note.hidden = false;
       content.hidden = true;
       list.innerHTML = '';
@@ -3996,296 +3996,507 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
 
     try {
       const adminStatus =
-        await window.BadmintonCloud.getWorkspaceAdminStatus(active.id);
+        await window.BadmintonCloud.getSiteAdminStatus();
 
       currentWorkspaceAdminStatus = adminStatus;
 
       if (
         !adminStatus?.can_manage_coordinators ||
-        !['owner', 'co-owner'].includes(String(adminStatus.member_role || ''))
+        !['owner', 'co-owner'].includes(
+          String(adminStatus.site_role || '')
+        )
       ) {
-        note.textContent = 'Access denied. Only the workspace Owner or Co-owner can manage coordinators.';
+        note.textContent =
+          'Access denied. Only the Website Owner or a Co-owner can manage coordinators.';
         note.hidden = false;
         content.hidden = true;
         await refreshCoordinatorPagePermission();
         return;
       }
 
-      const [coordinators, accessRows, siteOwnerStatus] = await Promise.all([
-        window.BadmintonCloud.listCoordinators(active.id),
-        window.BadmintonCloud.listManageableWorkspaceAccess(),
-        window.BadmintonCloud.getSiteOwnerStatus()
-      ]);
+      const [coordinators, accessRows, siteOwnerStatus] =
+        await Promise.all([
+          window.BadmintonCloud.listCoordinators(),
+          window.BadmintonCloud.listManageableWorkspaceAccess(),
+          window.BadmintonCloud.getSiteOwnerStatus()
+        ]);
+
+      const currentEmail =
+        String(user.email || '').toLowerCase();
 
       note.textContent =
-        `Active workspace role: ${adminStatus.member_role === 'owner' ? 'Owner' : 'Co-owner'} · ${active.name || 'Workspace'} · coordinator/workspace management enabled`;
+        `Website role: ${
+          adminStatus.site_role === 'owner'
+            ? 'Owner'
+            : 'Co-owner'
+        } · global coordinator/workspace administration enabled`;
+
       note.hidden = false;
       note.className = 'coordinator-access-note privileged';
       content.hidden = false;
 
-      const currentEmail = String(user.email || '').toLowerCase();
+      const coordinatorRoleByEmail = new Map(
+        coordinators.map(item => [
+          String(item.email || '').toLowerCase(),
+          String(item.site_role || 'coordinator')
+        ])
+      );
+
       const workspaceMap = new Map();
 
       accessRows.forEach(row => {
-        const workspaceId = String(row.workspace_id || '');
+        const workspaceId =
+          String(row.workspace_id || '');
+
         if (!workspaceId) return;
 
         if (!workspaceMap.has(workspaceId)) {
           workspaceMap.set(workspaceId, {
             id: workspaceId,
-            name: String(row.workspace_name || 'Workspace'),
-            callerRole: String(row.caller_role || ''),
-            ownerCredentialSet: Boolean(row.owner_credential_set),
+            name: String(
+              row.workspace_name || 'Workspace'
+            ),
             members: new Map()
           });
         }
 
-        const email = String(row.coordinator_email || '').toLowerCase();
+        const email =
+          String(row.coordinator_email || '')
+            .toLowerCase();
+
         if (email) {
-          workspaceMap.get(workspaceId).members.set(email, {
-            role: String(row.member_role || 'coordinator'),
-            joinedAt: row.joined_at || null
-          });
+          workspaceMap
+            .get(workspaceId)
+            .members
+            .set(email, {
+              role: String(
+                row.member_role || 'coordinator'
+              ),
+              joinedAt: row.joined_at || null
+            });
         }
       });
 
-      const manageableWorkspaces = [...workspaceMap.values()];
-      const ownerWorkspaces = manageableWorkspaces.filter(
-        workspace => workspace.callerRole === 'owner'
-      );
-      const coordinatorEmails = coordinators.map(item =>
-        String(item.email || '').toLowerCase()
+      const manageableWorkspaces =
+        [...workspaceMap.values()];
+
+      const normalCoordinators = coordinators.filter(
+        item =>
+          String(item.site_role || 'coordinator') ===
+          'coordinator'
       );
 
-      // Password selector
-      const passwordTarget = $('#coordinator-password-email');
+      const normalCoordinatorEmails =
+        normalCoordinators.map(item =>
+          String(item.email || '').toLowerCase()
+        );
+
+      const allCoordinatorEmails = coordinators.map(
+        item =>
+          String(item.email || '').toLowerCase()
+      );
+
+      // Password selector remains available for every approved account.
+      const passwordTarget =
+        $('#coordinator-password-email');
+
       if (passwordTarget) {
         const previousTarget = passwordTarget.value;
-        passwordTarget.innerHTML = coordinators.length
-          ? coordinators.map(item => {
-              const email = String(item.email || '').toLowerCase();
-              const isSelf = email === currentEmail;
-              return `<option value="${esc(email)}">${esc(email)}${isSelf ? ' · You' : ''}</option>`;
-            }).join('')
-          : '<option value="">No coordinators</option>';
 
-        passwordTarget.value = coordinatorEmails.includes(previousTarget)
-          ? previousTarget
-          : (coordinatorEmails.includes(currentEmail) ? currentEmail : (coordinatorEmails[0] || ''));
+        passwordTarget.innerHTML =
+          coordinators.length
+            ? coordinators
+                .map(item => {
+                  const email =
+                    String(item.email || '')
+                      .toLowerCase();
+
+                  const role =
+                    String(
+                      item.site_role || 'coordinator'
+                    );
+
+                  const isSelf =
+                    email === currentEmail;
+
+                  const roleSuffix =
+                    role === 'owner'
+                      ? ' · Owner'
+                      : (
+                          role === 'co-owner'
+                            ? ' · Co-owner'
+                            : ''
+                        );
+
+                  return `
+                    <option value="${esc(email)}">
+                      ${esc(email)}${isSelf ? ' · You' : ''}${roleSuffix}
+                    </option>
+                  `;
+                })
+                .join('')
+            : '<option value="">No coordinators</option>';
+
+        passwordTarget.value =
+          allCoordinatorEmails.includes(
+            previousTarget
+          )
+            ? previousTarget
+            : (
+                allCoordinatorEmails.includes(
+                  currentEmail
+                )
+                  ? currentEmail
+                  : (
+                      allCoordinatorEmails[0] || ''
+                    )
+              );
       }
 
+      // Workspace assignment targets only normal Coordinators.
       if (
         !selectedWorkspaceAccessEmail ||
-        !coordinatorEmails.includes(selectedWorkspaceAccessEmail)
+        !normalCoordinatorEmails.includes(
+          selectedWorkspaceAccessEmail
+        )
       ) {
         selectedWorkspaceAccessEmail =
-          coordinatorEmails.includes(currentEmail)
-            ? currentEmail
-            : (coordinatorEmails[0] || '');
+          normalCoordinatorEmails[0] || '';
       }
 
-      workspaceTarget.innerHTML = coordinators.length
-        ? coordinators.map(item => {
-            const email = String(item.email || '').toLowerCase();
-            const isSelf = email === currentEmail;
-            return `<option value="${esc(email)}" ${email === selectedWorkspaceAccessEmail ? 'selected' : ''}>${esc(email)}${isSelf ? ' · You' : ''}</option>`;
-          }).join('')
-        : '<option value="">No approved coordinators</option>';
+      workspaceTarget.innerHTML =
+        normalCoordinators.length
+          ? normalCoordinators
+              .map(item => {
+                const email =
+                  String(item.email || '')
+                    .toLowerCase();
 
-      const setWorkspaceFeedback = (message = '', type = 'info') => {
-        const element = $('#workspace-access-feedback');
+                return `
+                  <option
+                    value="${esc(email)}"
+                    ${
+                      email ===
+                      selectedWorkspaceAccessEmail
+                        ? 'selected'
+                        : ''
+                    }
+                  >${esc(email)}</option>
+                `;
+              })
+              .join('')
+          : '<option value="">No normal Coordinators</option>';
+
+      const setWorkspaceFeedback = (
+        message = '',
+        type = 'info'
+      ) => {
+        const element =
+          $('#workspace-access-feedback');
+
         if (!element) return;
+
         if (!message) {
           element.textContent = '';
-          element.className = 'workspace-access-feedback';
+          element.className =
+            'workspace-access-feedback';
           element.hidden = true;
           return;
         }
+
         element.textContent = message;
-        element.className = `workspace-access-feedback ${type}`;
+        element.className =
+          `workspace-access-feedback ${type}`;
         element.hidden = false;
       };
 
       const renderWorkspaceAccessOptions = () => {
-        const targetEmail = String(workspaceTarget.value || '').trim().toLowerCase();
-        selectedWorkspaceAccessEmail = targetEmail;
+        const targetEmail =
+          String(
+            workspaceTarget.value || ''
+          ).trim().toLowerCase();
 
-        if (!manageableWorkspaces.length) {
-          workspaceList.innerHTML = '<div class="workspace-access-empty">No workspace is manageable with the current account.</div>';
+        selectedWorkspaceAccessEmail =
+          targetEmail;
+
+        if (!targetEmail) {
+          workspaceList.innerHTML = `
+            <div class="workspace-access-empty">
+              Workspace assignment is only for normal Coordinators.
+              Website Owner and Co-owners automatically access every workspace.
+            </div>
+          `;
           return;
         }
 
-        workspaceList.innerHTML = manageableWorkspaces.map(workspace => {
-          const membership = workspace.members.get(targetEmail);
-          const role = String(membership?.role || '');
-          const isOwner = role === 'owner';
-          const isCoowner = role === 'co-owner';
-          const privileged = isOwner || isCoowner;
-          const hasAccess = Boolean(membership);
-          const roleText = isOwner
-            ? 'Owner · access cannot be removed'
-            : (isCoowner
-                ? 'Co-owner · Owner must demote before access can be removed'
-                : (hasAccess ? 'Coordinator access granted' : 'No access'));
-
-          return `
-            <label class="workspace-access-row ${isCoowner ? 'coowner' : ''}">
-              <input
-                class="workspace-access-toggle"
-                type="checkbox"
-                data-workspace-id="${esc(workspace.id)}"
-                data-workspace-name="${esc(workspace.name)}"
-                ${hasAccess ? 'checked' : ''}
-                ${privileged ? 'disabled' : ''}
-              />
-              <span class="workspace-access-name">
-                <strong>${esc(workspace.name)}</strong>
-                <small>${roleText} · You are ${workspace.callerRole === 'owner' ? 'Owner' : 'Co-owner'}</small>
-              </span>
-              <span class="workspace-access-state ${hasAccess ? 'granted' : 'not-granted'}">
-                ${isOwner ? 'Owner' : (isCoowner ? 'Co-owner' : (hasAccess ? 'Access' : 'No access'))}
-              </span>
-            </label>
+        if (!manageableWorkspaces.length) {
+          workspaceList.innerHTML = `
+            <div class="workspace-access-empty">
+              No workspaces exist yet.
+            </div>
           `;
-        }).join('');
+          return;
+        }
 
-        $$('.workspace-access-toggle').forEach(toggle => {
-          toggle.addEventListener('change', async event => {
-            const checkbox = event.currentTarget;
-            const workspaceId = checkbox.dataset.workspaceId;
-            const workspaceName = checkbox.dataset.workspaceName || 'workspace';
-            const enabled = checkbox.checked;
-            const email = selectedWorkspaceAccessEmail;
-            checkbox.disabled = true;
+        workspaceList.innerHTML =
+          manageableWorkspaces
+            .map(workspace => {
+              const membership =
+                workspace.members.get(targetEmail);
 
-            setWorkspaceFeedback(
-              enabled ? `Adding ${email} to ${workspaceName}…` : `Removing ${email} from ${workspaceName}…`,
-              'working'
-            );
+              const hasAccess =
+                membership?.role === 'coordinator';
 
-            try {
-              if (enabled) {
-                await window.BadmintonCloud.grantWorkspaceAccess(workspaceId, email);
-              } else {
-                await window.BadmintonCloud.revokeWorkspaceAccess(workspaceId, email);
+              return `
+                <label class="workspace-access-row">
+                  <input
+                    class="workspace-access-toggle"
+                    type="checkbox"
+                    data-workspace-id="${esc(workspace.id)}"
+                    data-workspace-name="${esc(workspace.name)}"
+                    ${hasAccess ? 'checked' : ''}
+                  />
+
+                  <span class="workspace-access-name">
+                    <strong>${esc(workspace.name)}</strong>
+                    <small>
+                      ${
+                        hasAccess
+                          ? 'Coordinator access granted'
+                          : 'No coordinator access'
+                      }
+                    </small>
+                  </span>
+
+                  <span class="workspace-access-state ${
+                    hasAccess
+                      ? 'granted'
+                      : 'not-granted'
+                  }">
+                    ${
+                      hasAccess
+                        ? 'Access'
+                        : 'No access'
+                    }
+                  </span>
+                </label>
+              `;
+            })
+            .join('');
+
+        $$('.workspace-access-toggle')
+          .forEach(toggle => {
+            toggle.addEventListener(
+              'change',
+              async event => {
+                const checkbox =
+                  event.currentTarget;
+
+                const workspaceId =
+                  checkbox.dataset.workspaceId;
+
+                const workspaceName =
+                  checkbox.dataset.workspaceName ||
+                  'workspace';
+
+                const enabled =
+                  checkbox.checked;
+
+                const email =
+                  selectedWorkspaceAccessEmail;
+
+                checkbox.disabled = true;
+
+                setWorkspaceFeedback(
+                  enabled
+                    ? `Adding ${email} to ${workspaceName}…`
+                    : `Removing ${email} from ${workspaceName}…`,
+                  'working'
+                );
+
+                try {
+                  if (enabled) {
+                    await window
+                      .BadmintonCloud
+                      .grantWorkspaceAccess(
+                        workspaceId,
+                        email
+                      );
+                  } else {
+                    await window
+                      .BadmintonCloud
+                      .revokeWorkspaceAccess(
+                        workspaceId,
+                        email
+                      );
+                  }
+
+                  setWorkspaceFeedback(
+                    enabled
+                      ? `${email} can now open ${workspaceName}.`
+                      : `${email} no longer has access to ${workspaceName}.`,
+                    'success'
+                  );
+
+                  setStatus(
+                    enabled
+                      ? `Workspace access granted: ${email} → ${workspaceName}`
+                      : `Workspace access removed: ${email} → ${workspaceName}`
+                  );
+
+                  scheduleWorkspaceRefresh({
+                    pullState: false,
+                    delay: 0
+                  });
+
+                  await renderCoordinators();
+                } catch (error) {
+                  checkbox.checked = !enabled;
+                  checkbox.disabled = false;
+
+                  setWorkspaceFeedback(
+                    `Could not change workspace access: ${error.message}`,
+                    'error'
+                  );
+
+                  setStatus(
+                    `Could not change workspace access: ${error.message}`
+                  );
+                }
               }
-
-              setWorkspaceFeedback(
-                enabled
-                  ? `${email} can now open ${workspaceName} from any signed-in device.`
-                  : `${email} no longer has access to ${workspaceName}.`,
-                'success'
-              );
-
-              setStatus(enabled
-                ? `Workspace access granted: ${email} → ${workspaceName}`
-                : `Workspace access removed: ${email} → ${workspaceName}`);
-
-              await renderCoordinators();
-            } catch (error) {
-              checkbox.checked = !enabled;
-              checkbox.disabled = false;
-              setWorkspaceFeedback(`Could not change workspace access: ${error.message}`, 'error');
-              setStatus(`Could not change workspace access: ${error.message}`);
-            }
+            );
           });
-        });
       };
 
       workspaceTarget.onchange = () => {
-        selectedWorkspaceAccessEmail = String(workspaceTarget.value || '').toLowerCase();
+        selectedWorkspaceAccessEmail =
+          String(
+            workspaceTarget.value || ''
+          ).toLowerCase();
+
         setWorkspaceFeedback('');
         renderWorkspaceAccessOptions();
       };
+
       renderWorkspaceAccessOptions();
 
-      // Owner-only credential and Co-owner controls
-      const ownerCredentialCard = $('#owner-credential-card');
-      const coownerCard = $('#coowner-management-card');
-      const coownerWorkspaceSelect = $('#coowner-workspace-select');
-      const coownerEmailSelect = $('#coowner-email');
-      const coownerRoleText = $('#coowner-current-role');
-      const promoteButton = $('#coowner-promote');
-      const demoteButton = $('#coowner-demote');
-      const credentialStatus = $('#owner-credential-status');
+      // ------------------------------------------------------
+      // Website Owner credential + global Co-owner controls
+      // ------------------------------------------------------
+      const ownerCredentialCard =
+        $('#owner-credential-card');
 
-      const ownerOptions = ownerWorkspaces.map(workspace =>
-        `<option value="${esc(workspace.id)}">${esc(workspace.name)}</option>`
-      ).join('');
+      const coownerCard =
+        $('#coowner-management-card');
 
-      const globalCredentialSet = Boolean(
-        siteOwnerStatus?.credential_set ||
-        adminStatus?.owner_credential_set
-      );
+      const coownerEmailSelect =
+        $('#coowner-email');
 
-      // The credential itself is website-wide and can only be changed by the
-      // Website Owner. It is no longer selected or stored per workspace.
-      ownerCredentialCard.hidden = !siteOwnerStatus?.is_site_owner;
-      coownerCard.hidden = ownerWorkspaces.length === 0;
+      const coownerRoleText =
+        $('#coowner-current-role');
+
+      const promoteButton =
+        $('#coowner-promote');
+
+      const demoteButton =
+        $('#coowner-demote');
+
+      const credentialStatus =
+        $('#owner-credential-status');
+
+      const globalCredentialSet =
+        Boolean(adminStatus.credential_set);
+
+      ownerCredentialCard.hidden =
+        !siteOwnerStatus?.is_site_owner;
+
+      coownerCard.hidden =
+        !siteOwnerStatus?.is_site_owner;
 
       if (credentialStatus) {
-        credentialStatus.textContent = globalCredentialSet
-          ? 'Website credential status: Set. Saving a new credential replaces it for the entire website.'
-          : 'Website credential status: Not set. The Website Owner must set it before any Co-owner can be appointed.';
+        credentialStatus.textContent =
+          globalCredentialSet
+            ? 'Website credential status: Set. Saving a new credential replaces it for the entire website.'
+            : 'Website credential status: Not set. Set it before appointing a Co-owner.';
 
         credentialStatus.className =
-          `owner-credential-status ${globalCredentialSet ? 'set' : 'missing'}`;
+          `owner-credential-status ${
+            globalCredentialSet
+              ? 'set'
+              : 'missing'
+          }`;
       }
 
-      if (ownerWorkspaces.length) {
-        const previousCoownerWorkspace = coownerWorkspaceSelect.value;
-        coownerWorkspaceSelect.innerHTML = ownerOptions;
+      if (siteOwnerStatus?.is_site_owner) {
+        const eligibleAccounts =
+          coordinators.filter(
+            item =>
+              String(
+                item.site_role || 'coordinator'
+              ) !== 'owner'
+          );
 
-        if (ownerWorkspaces.some(w => w.id === previousCoownerWorkspace)) {
-          coownerWorkspaceSelect.value = previousCoownerWorkspace;
-        }
+        const previousEmail =
+          coownerEmailSelect.value;
 
-        const otherCoordinators = coordinatorEmails.filter(
-          email => email !== currentEmail
-        );
+        coownerEmailSelect.innerHTML =
+          eligibleAccounts.length
+            ? eligibleAccounts
+                .map(item => {
+                  const email =
+                    String(item.email || '')
+                      .toLowerCase();
 
-        const previousCoownerEmail = coownerEmailSelect.value;
-        coownerEmailSelect.innerHTML = otherCoordinators.length
-          ? otherCoordinators
-              .map(email =>
-                `<option value="${esc(email)}">${esc(email)}</option>`
-              )
-              .join('')
-          : '<option value="">No other coordinators</option>';
+                  const role =
+                    String(
+                      item.site_role ||
+                      'coordinator'
+                    );
 
-        if (otherCoordinators.includes(previousCoownerEmail)) {
-          coownerEmailSelect.value = previousCoownerEmail;
+                  return `
+                    <option value="${esc(email)}">
+                      ${esc(email)} · ${
+                        role === 'co-owner'
+                          ? 'Co-owner'
+                          : 'Coordinator'
+                      }
+                    </option>
+                  `;
+                })
+                .join('')
+            : '<option value="">No eligible accounts</option>';
+
+        if (
+          eligibleAccounts.some(
+            item =>
+              String(item.email || '')
+                .toLowerCase() ===
+              previousEmail
+          )
+        ) {
+          coownerEmailSelect.value =
+            previousEmail;
         }
 
         const updateCoownerRole = () => {
-          const workspace = workspaceMap.get(
-            coownerWorkspaceSelect.value
-          );
-
           const email =
-            String(coownerEmailSelect.value || '').toLowerCase();
+            String(
+              coownerEmailSelect.value || ''
+            ).toLowerCase();
 
           const role =
-            workspace?.members.get(email)?.role || 'no access';
+            coordinatorRoleByEmail.get(email) ||
+            'coordinator';
 
           coownerRoleText.textContent =
-            `Current role: ${
+            `Website role: ${
               role === 'co-owner'
-                ? 'Co-owner'
-                : (
-                    role === 'coordinator'
-                      ? 'Coordinator'
-                      : (
-                          role === 'owner'
-                            ? 'Owner'
-                            : 'No workspace access'
-                        )
-                  )
+                ? 'Co-owner · automatic access to all workspaces'
+                : 'Coordinator · workspace access is assigned individually'
             }`;
 
           promoteButton.disabled =
             !email ||
-            role === 'owner' ||
             role === 'co-owner' ||
             !globalCredentialSet;
 
@@ -4295,80 +4506,212 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
             !globalCredentialSet;
         };
 
-        coownerWorkspaceSelect.onchange = updateCoownerRole;
-        coownerEmailSelect.onchange = updateCoownerRole;
+        coownerEmailSelect.onchange =
+          updateCoownerRole;
+
         updateCoownerRole();
       }
+
+      // ------------------------------------------------------
       // Coordinator rows
+      // ------------------------------------------------------
       list.innerHTML = coordinators.length
-        ? coordinators.map(item => {
-            const email = String(item.email || '').toLowerCase();
-            const isSelf = email === currentEmail;
-            const workspaceCount = manageableWorkspaces.filter(
-              workspace => workspace.members.has(email)
-            ).length;
-            const roleSummary = manageableWorkspaces
-              .filter(workspace => workspace.members.has(email))
-              .map(workspace => {
-                const role = workspace.members.get(email)?.role || 'coordinator';
-                return `${workspace.name}: ${role}`;
-              })
-              .join(' · ');
-            const canRemoveAccount =
-              ['owner', 'co-owner'].includes(
-                String(adminStatus.member_role || '')
-              ) && !isSelf;
+        ? coordinators
+            .map(item => {
+              const email =
+                String(item.email || '')
+                  .toLowerCase();
 
-            return `
-              <div class="coordinator-row">
-                <div class="coordinator-row-main">
-                  <div class="coordinator-row-email">
-                    <strong>${esc(email)}</strong>
-                    ${isSelf ? '<span class="coordinator-you">You</span>' : ''}
+              const role =
+                String(
+                  item.site_role ||
+                  'coordinator'
+                );
+
+              const isSelf =
+                email === currentEmail;
+
+              const isPrivileged =
+                role === 'owner' ||
+                role === 'co-owner';
+
+              const workspaceCount =
+                isPrivileged
+                  ? manageableWorkspaces.length
+                  : manageableWorkspaces
+                      .filter(workspace =>
+                        workspace.members
+                          .get(email)
+                          ?.role ===
+                        'coordinator'
+                      )
+                      .length;
+
+              const accessSummary =
+                role === 'owner'
+                  ? `Website Owner · automatic access to all ${manageableWorkspaces.length} workspace${manageableWorkspaces.length === 1 ? '' : 's'}`
+                  : (
+                      role === 'co-owner'
+                        ? `Website Co-owner · automatic access to all ${manageableWorkspaces.length} workspace${manageableWorkspaces.length === 1 ? '' : 's'}`
+                        : `${workspaceCount} assigned workspace${workspaceCount === 1 ? '' : 's'}`
+                    );
+
+              const canRemoveAccount =
+                role === 'coordinator' &&
+                !isSelf;
+
+              return `
+                <div class="coordinator-row">
+                  <div class="coordinator-row-main">
+                    <div class="coordinator-row-email">
+                      <strong>${esc(email)}</strong>
+
+                      ${
+                        isSelf
+                          ? '<span class="coordinator-you">You</span>'
+                          : ''
+                      }
+
+                      <span class="coordinator-global-role ${
+                        role === 'owner'
+                          ? 'owner'
+                          : (
+                              role === 'co-owner'
+                                ? 'coowner'
+                                : 'coordinator'
+                            )
+                      }">
+                        ${
+                          role === 'owner'
+                            ? 'Owner'
+                            : (
+                                role === 'co-owner'
+                                  ? 'Co-owner'
+                                  : 'Coordinator'
+                              )
+                        }
+                      </span>
+                    </div>
+
+                    <span class="coordinator-workspace-count">
+                      ${esc(accessSummary)}
+                    </span>
                   </div>
-                  <span class="coordinator-workspace-count">
-                    ${workspaceCount} manageable workspace${workspaceCount === 1 ? '' : 's'}${roleSummary ? ` · ${esc(roleSummary)}` : ''}
-                  </span>
+
+                  <div class="coordinator-row-actions">
+                    ${
+                      role === 'coordinator'
+                        ? `
+                          <button
+                            class="btn coordinator-manage-workspaces"
+                            type="button"
+                            data-email="${esc(email)}"
+                          >Manage workspaces</button>
+                        `
+                        : `
+                          <span class="coordinator-auto-access">
+                            All workspaces
+                          </span>
+                        `
+                    }
+
+                    ${
+                      canRemoveAccount
+                        ? `
+                          <button
+                            class="btn danger coordinator-remove"
+                            type="button"
+                            data-email="${esc(email)}"
+                          >Remove account</button>
+                        `
+                        : ''
+                    }
+                  </div>
                 </div>
-                <div class="coordinator-row-actions">
-                  <button class="btn coordinator-manage-workspaces" type="button" data-email="${esc(email)}">Manage workspaces</button>
-                  ${canRemoveAccount ? `<button class="btn danger coordinator-remove" type="button" data-email="${esc(email)}">Remove account</button>` : ''}
-                </div>
-              </div>
-            `;
-          }).join('')
-        : '<div class="coordinator-empty">No coordinator emails found.</div>';
+              `;
+            })
+            .join('')
+        : `
+          <div class="coordinator-empty">
+            No coordinator emails found.
+          </div>
+        `;
 
-      $$('.coordinator-manage-workspaces').forEach(button => {
-        button.addEventListener('click', event => {
-          selectedWorkspaceAccessEmail = String(event.currentTarget.dataset.email || '').toLowerCase();
-          workspaceTarget.value = selectedWorkspaceAccessEmail;
-          setWorkspaceFeedback('');
-          renderWorkspaceAccessOptions();
-          $('.coordinator-workspace-access-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-      });
+      $$('.coordinator-manage-workspaces')
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            event => {
+              selectedWorkspaceAccessEmail =
+                String(
+                  event.currentTarget
+                    .dataset.email || ''
+                ).toLowerCase();
 
-      $$('.coordinator-remove').forEach(button => {
-        button.addEventListener('click', async event => {
-          const email = event.currentTarget.dataset.email;
-          if (!email) return;
-          if (!window.confirm(`Remove coordinator account for ${email}? Workspace access must already be removed everywhere.`)) return;
+              workspaceTarget.value =
+                selectedWorkspaceAccessEmail;
 
-          try {
-            await window.BadmintonCloud.removeCoordinator(email, active.id);
-            setStatus(`Coordinator account removed: ${email}`);
-            if (selectedWorkspaceAccessEmail === email) {
-              selectedWorkspaceAccessEmail = currentEmail;
+              setWorkspaceFeedback('');
+              renderWorkspaceAccessOptions();
+
+              $('.coordinator-workspace-access-card')
+                ?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'center'
+                });
             }
-            await renderCoordinators();
-          } catch (error) {
-            setStatus(`Could not remove coordinator account: ${error.message}`);
-          }
+          );
         });
-      });
+
+      $$('.coordinator-remove')
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            async event => {
+              const email =
+                event.currentTarget
+                  .dataset.email;
+
+              if (!email) return;
+
+              if (
+                !window.confirm(
+                  `Remove coordinator account for ${email}? Workspace access must already be removed everywhere.`
+                )
+              ) {
+                return;
+              }
+
+              try {
+                await window
+                  .BadmintonCloud
+                  .removeCoordinator(email);
+
+                setStatus(
+                  `Coordinator account removed: ${email}`
+                );
+
+                if (
+                  selectedWorkspaceAccessEmail ===
+                  email
+                ) {
+                  selectedWorkspaceAccessEmail =
+                    '';
+                }
+
+                await renderCoordinators();
+              } catch (error) {
+                setStatus(
+                  `Could not remove coordinator account: ${error.message}`
+                );
+              }
+            }
+          );
+        });
     } catch (error) {
-      note.textContent = `Could not load coordinator management: ${error.message}`;
+      note.textContent =
+        `Could not load coordinator management: ${error.message}`;
+
       note.hidden = false;
       content.hidden = true;
     }
@@ -4392,7 +4735,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     if (target === 'coordinators' && !canManageCoordinatorPage()) {
       target = 'participants';
       if (panelName === 'coordinators') {
-        setStatus('Only the active workspace Owner or Co-owner can access Coordinators.');
+        setStatus('Only the Website Owner or a Co-owner can access Coordinators.');
       }
     }
 
@@ -4416,7 +4759,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       event.preventDefault();
 
       if (tab.dataset.tab === 'coordinators' && !canManageCoordinatorPage()) {
-        setStatus('Only the active workspace Owner or Co-owner can access Coordinators.');
+        setStatus('Only the Website Owner or a Co-owner can access Coordinators.');
         return;
       }
 
@@ -4665,18 +5008,21 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
   }
 
   async function changeCoownerRole(action) {
-    const workspaceId = $('#coowner-workspace-select')?.value || '';
     const email = $('#coowner-email')?.value || '';
     const credential = $('#coowner-owner-credential')?.value || '';
     const promoteButton = $('#coowner-promote');
     const demoteButton = $('#coowner-demote');
 
-    if (!workspaceId || !email) {
-      setCoownerFeedback('Choose an owned workspace and coordinator.', 'warning');
+    if (!email) {
+      setCoownerFeedback('Choose a Coordinator or Co-owner.', 'warning');
       return;
     }
+
     if (!credential) {
-      setCoownerFeedback('Enter the website-wide Owner authorization credential.', 'warning');
+      setCoownerFeedback(
+        'Enter the website-wide Owner authorization credential.',
+        'warning'
+      );
       $('#coowner-owner-credential')?.focus();
       return;
     }
@@ -4684,27 +5030,41 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     try {
       promoteButton.disabled = true;
       demoteButton.disabled = true;
+
       setCoownerFeedback(
-        action === 'promote' ? `Promoting ${email} to Co-owner…` : `Demoting ${email} to Coordinator…`,
+        action === 'promote'
+          ? `Promoting ${email} to website Co-owner…`
+          : `Removing website Co-owner status from ${email}…`,
         'working'
       );
 
       if (action === 'promote') {
-        await window.BadmintonCloud.promoteCoowner(workspaceId, email, credential);
+        await window.BadmintonCloud.promoteCoowner(email, credential);
       } else {
-        await window.BadmintonCloud.demoteCoowner(workspaceId, email, credential);
+        await window.BadmintonCloud.demoteCoowner(email, credential);
       }
 
       $('#coowner-owner-credential').value = '';
+
       const message = action === 'promote'
-        ? `${email} is now a Co-owner.`
-        : `${email} is now a Coordinator.`;
+        ? `${email} is now a website Co-owner with automatic access to all workspaces.`
+        : `${email} is now a normal Coordinator with no automatic workspace access.`;
+
       setCoownerFeedback(message, 'success');
       setStatus(message);
-      scheduleWorkspaceRefresh({ pullState: false, delay: 0 });
+
+      scheduleWorkspaceRefresh({
+        pullState: false,
+        delay: 0
+      });
+
+      await refreshCoordinatorPagePermission();
       await renderCoordinators();
     } catch (error) {
-      setCoownerFeedback(`Role change failed: ${error.message}`, 'error');
+      setCoownerFeedback(
+        `Role change failed: ${error.message}`,
+        'error'
+      );
       await renderCoordinators();
     }
   }
@@ -4768,9 +5128,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
         'working'
       );
 
-      const activeWorkspace = window.BadmintonCloud.getActiveWorkspace();
-      if (!activeWorkspace) throw new Error('Open a workspace first.');
-      await window.BadmintonCloud.addCoordinator(email, password, activeWorkspace.id);
+      await window.BadmintonCloud.addCoordinator(email, password);
 
       emailInput.value = '';
       passwordInput.value = '';
@@ -5041,7 +5399,7 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
     const canCreate = await refreshCreateWorkspacePermission();
 
     if (!canCreate) {
-      setStatus('Only an Owner or Co-owner can create a workspace.');
+      setStatus('Only the Website Owner or a Co-owner can create a workspace.');
       return;
     }
 
@@ -5054,18 +5412,6 @@ $$('.available-player-select').forEach(select => select.addEventListener('change
       scheduleWorkspaceRefresh({ pullState: false, delay: 0 });
       setStatus(`Workspace created: ${workspace.name}. Share join code ${workspace.join_code} with coordinators.`);
     } catch (error) { setStatus(`Could not create workspace: ${error.message}`); }
-  });
-
-  $('#cloud-join-workspace').addEventListener('click', async () => {
-    const code = $('#cloud-join-code').value.trim();
-    if (!code) { setStatus('Enter a workspace join code first.'); return; }
-    try {
-      const workspace = await window.BadmintonCloud.joinWorkspace(code);
-      await activateCloudWorkspace(workspace, { loadState: true });
-      await renderCloudUi();
-      scheduleWorkspaceRefresh({ pullState: false, delay: 0 });
-      setStatus(`Joined shared workspace: ${workspace.name}`);
-    } catch (error) { setStatus(`Could not join workspace: ${error.message}`); }
   });
 
   $('#cloud-switch-workspace').addEventListener('click', async () => {

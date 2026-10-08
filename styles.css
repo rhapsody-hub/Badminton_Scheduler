@@ -5257,3 +5257,58 @@ label {
 #cloud-create-workspace-column[hidden] {
   display: none !important;
 }
+
+
+/* =========================================================
+   Global website Co-owner role
+   ========================================================= */
+
+.global-coowner-management-grid {
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+}
+
+.coordinator-global-role {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.52rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.coordinator-global-role.owner {
+  background: #e8effa;
+  color: #244f86;
+}
+
+.coordinator-global-role.coowner {
+  background: #edf7ef;
+  color: #2e6b36;
+}
+
+.coordinator-global-role.coordinator {
+  background: #f0f2f5;
+  color: #667487;
+}
+
+.coordinator-auto-access {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid #cfe2d2;
+  border-radius: 7px;
+  background: #f2faf3;
+  color: #2e6b36;
+  font-size: 0.57rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .global-coowner-management-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Badminton Session Manager</title>
-  <link rel="stylesheet" href="styles.css?refresh=49" />
+  <link rel="stylesheet" href="styles.css?refresh=50" />
 </head>
 <body>
   <main id="bsm-root" class="app-shell">
@@ -73,10 +73,10 @@
         <div id="cloud-workspace-picker" class="cloud-workspace-picker">
           <div class="cloud-picker-column"><label>Existing workspace<select id="cloud-workspace-select" class="input"></select></label><button id="cloud-open-workspace" class="btn primary" type="button">Open workspace</button></div>
           <div id="cloud-create-workspace-column" class="cloud-picker-column" hidden><label>Create workspace<input id="cloud-new-workspace-name" class="input" type="text" maxlength="80" placeholder="Club / coordinator group" /></label><button id="cloud-create-workspace" class="btn" type="button">Create</button><span class="cloud-create-role-note">Owner / Co-owner only</span></div>
-          <div class="cloud-picker-column"><label>Join workspace code<input id="cloud-join-code" class="input" type="text" maxlength="12" placeholder="e.g. 7K4M9Q2P" /></label><button id="cloud-join-workspace" class="btn" type="button">Join</button></div>
+
         </div>
         <div id="cloud-active-workspace" class="cloud-active-workspace" hidden>
-          <div>Workspace: <strong id="cloud-workspace-name"></strong><span class="cloud-code-wrap">Join code: <code id="cloud-workspace-code"></code></span></div>
+          <div>Workspace: <strong id="cloud-workspace-name"></strong><span class="cloud-code-wrap">Workspace code: <code id="cloud-workspace-code"></code></span></div>
           <div class="cloud-active-actions"><button id="cloud-push-current" class="btn" type="button">Sync current now</button><button id="cloud-switch-workspace" class="btn" type="button">Switch workspace</button></div>
         </div>
         <div id="cloud-conflict" class="cloud-conflict" hidden>
@@ -575,7 +575,7 @@
       <div class="section-head">
         <div>
           <h2>Coordinators</h2>
-          <p>Owner / Co-owner only. Both roles can manage coordinators and workspace access; only Owners can appoint or remove Co-owners.</p>
+          <p>Website Owner / Co-owner only. Co-owners are global administrators with automatic access to all workspaces; only the Website Owner can appoint or remove Co-owners.</p>
         </div>
       </div>
 
@@ -735,19 +735,14 @@
               <div>
                 <strong>Co-owner management</strong>
                 <span>
-                  Co-owners can access the Coordinators page and manage coordinator workspace access for workspaces where they are Co-owner. Only the workspace Owner can appoint or demote Co-owners, using the single website-wide Owner credential.
+                  Co-owner is a website-wide role. Co-owners automatically access every existing and future workspace and can manage coordinator workspace assignments. Only the Website Owner can appoint or remove Co-owners, using the website-wide Owner credential.
                 </span>
               </div>
             </div>
 
-            <div class="coowner-management-grid">
+            <div class="coowner-management-grid global-coowner-management-grid">
               <label>
-                Owned workspace
-                <select id="coowner-workspace-select" class="input"></select>
-              </label>
-
-              <label>
-                Coordinator
+                Coordinator / Co-owner
                 <select id="coowner-email" class="input"></select>
               </label>
 
@@ -779,8 +774,7 @@
               <div>
                 <strong>Workspace access</strong>
                 <span>
-                  Assign approved coordinators to workspaces where you are Owner or Co-owner.
-                  Owner/Co-owner roles cannot be removed with this checkbox; the Owner must demote a Co-owner first.
+                  Assign normal Coordinators to specific workspaces. Website Owner and Co-owners are not assigned here because they automatically have access to every workspace.
                 </span>
               </div>
             </div>
@@ -824,9 +818,9 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
-  <script src="storage.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
-  <script src="cloud.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
-  <script src="app.js?refresh=49" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
+  <script src="config.js?refresh=50" onerror="document.getElementById('status').textContent='Could not load config.js. Make sure config.js is uploaded beside index.html.'"></script>
+  <script src="storage.js?refresh=50" onerror="document.getElementById('status').textContent='Could not load storage.js. Refresh the page.'"></script>
+  <script src="cloud.js?refresh=50" onerror="document.getElementById('status').textContent='Could not load cloud.js. Refresh the page.'"></script>
+  <script src="app.js?refresh=50" onerror="document.getElementById('status').textContent='Could not load app.js. Refresh the page.'"></script>
 </body>
 </html>

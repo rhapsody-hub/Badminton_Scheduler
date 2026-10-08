@@ -1015,3 +1015,22 @@ The intended role differences are:
 2. Only **Owners and Co-owners** can create new workspaces. Normal Coordinators cannot.
 
 Workspace authority remains scoped. A Co-owner of Workspace A can manage coordinator access for Workspace A, but receives no authority over Workspace B unless that same account is also Owner/Co-owner there.
+
+
+## Global Co-owner model
+
+Co-owner is now a website-wide role rather than a workspace-specific role.
+
+- The Website Owner is global.
+- Co-owners are global.
+- Promoting a Coordinator to Co-owner automatically gives that account access to every existing workspace.
+- New workspaces automatically include the Website Owner and every Co-owner.
+- Removing Co-owner status removes the account's automatic workspace access. The account remains an approved normal Coordinator and can then be assigned to selected workspaces manually.
+- Only the Website Owner can appoint or remove Co-owners.
+- The website-wide Owner authorization credential is required for Co-owner promotion/demotion.
+- Owner and Co-owners can create workspaces.
+- Owner and Co-owners can manage normal Coordinator accounts and workspace assignments.
+- Only normal Coordinators appear in the per-workspace assignment selector.
+- Normal Coordinators can no longer self-join a workspace by join code; workspace membership is assigned by Owner/Co-owner administrators.
+
+This keeps workspace assignment simple: privileged website roles automatically see everything, while only normal Coordinators require explicit workspace assignment.
